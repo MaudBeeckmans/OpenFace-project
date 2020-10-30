@@ -182,16 +182,5 @@ big_DF.columns = ['Type', 'action started ms', 'action started F', 'action ended
 DF_file = 'Stored_info.csv'
 big_DF.to_csv(DF_file, index = True)
 
-print(actionstart_time)
-print(actionstart_frame)
-print(actionend_time)
-print(actionend_frame)
 
 core.quit()
-#recor video untill you quit, pressing 'q'
-# while True:
-#     ret, frame = cap.read()
-#     out.write(frame)
-#     cv2.imshow('frame',frame)
-#     if cv2.waitKey(1) & 0xFF == ord('q'):
-#         break
