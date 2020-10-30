@@ -1,1 +1,1 @@
-# OpenFace_project
+# OpenFace-project
