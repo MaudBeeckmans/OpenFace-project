@@ -73,7 +73,8 @@ def get_dims(cap, res='1080p'):
 # Video Encoding, might require additional installs
 # Types of Codes: http://www.fourcc.org/codecs.php
 #2 types of video's very useful, which used is dependent on the datafile name above
-VIDEO_TYPE = {'avi': cv2.VideoWriter_fourcc(*'XVID'),'mp4': cv2.VideoWriter_fourcc(*'XVID')}
+VIDEO_TYPE = {'avi': cv2.VideoWriter_fourcc(*'DIVX'),'mp4': cv2.VideoWriter_fourcc(*'DIVX')}
+# https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_gui/py_video_display/py_video_display.html
 
 #datafilename should include '.mp4' or '.avi' to create that type of output file
 def get_video_type(filename):
@@ -96,8 +97,14 @@ def test_camera_position():
     cv2.destroyAllWindows()
 
 
-video_time = 7
-timer = core.Clock()
+
+#%%
+
+sec_before_action = 1
+sec_after_action = 1
+sec_action = 2
+
+video_time = sec_before_action + sec_action + sec_after_action
 
 win = visual.Window((600, 400), monitor = 'Laptop')
 
@@ -107,8 +114,8 @@ frown = visual.TextStim(win, text = 'Frown')
 
 
 type_options = np.array(['smile', 'frown'])
-n_smile = 5
-n_frown = 5
+n_smile = 2
+n_frown = 2
 n_trials = n_smile + n_frown
 #type_array_binary = np.concatenate([np.zeros(n_smile), np.ones(n_frown)])
 type_array = np.concatenate([np.repeat('smile', n_smile), np.repeat('frown', n_frown)])
@@ -123,10 +130,15 @@ actionend_time = np.empty(n_trials)
 
 test_camera_position()
 
+sec_before_action = 1
+sec_after_action = 1
+sec_action = 2
+
+video_time = sec_before_action + sec_action + sec_after_action
+timer = core.Clock()
+
 for trial in range(n_smile + n_frown): 
     frame_count = 1
-    sec_before_action = 2
-    sec_after_action = 2
     #create the possibility to capture video 
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     
@@ -138,7 +150,7 @@ for trial in range(n_smile + n_frown):
     out = cv2.VideoWriter(filename, get_video_type(filename), frames_per_second, get_dims(cap, my_res))
     fix.draw()
     win.flip()
-    core.wait(2)  #seems !! to have valid timing, maybe camera !! to adapt a bit first 2 sec 
+    core.wait(2)  #seems necessary to have valid timing, maybe camera !! to adapt a bit first 2 sec 
     timer.reset()
     #record video for certain time: 
     while timer.getTime() < video_time: 
@@ -154,7 +166,7 @@ for trial in range(n_smile + n_frown):
             win.flip()
             startT = timer.getTime()
             startF = frame_count + 1
-        elif frame_count == int(frames_per_second*5):
+        elif frame_count == int(frames_per_second*(sec_before_action + sec_action)):
             # fix.draw()
             win.flip()
             endT = timer.getTime()
