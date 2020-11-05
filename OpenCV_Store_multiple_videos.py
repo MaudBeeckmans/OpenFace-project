@@ -17,6 +17,7 @@ Created on Thu Oct 29 14:45:34 2020
     # numpy: '1.19.2'
     # cv2: '4.5.0'
     # pandas: '1.1.3'
+    # psychopy: 2020.2.5
     
     
 
