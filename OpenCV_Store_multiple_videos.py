@@ -5,6 +5,15 @@ Created on Thu Oct 29 14:45:34 2020
 @author: Maud
 """
 
+"""Instructies: 
+    Eerst zal een test-scherm verschijnen, kijk hier of je camera goed gericht staat op je gezicht.
+    Druk op 'q' wnr dit het geval is.
+    Vervolgens begint het echte opname-deel. Vanaf 'smile' of 'frown' op het scherm verschijnt, 
+    probeer dit uit te voeren. Doe dit zolang het woord op het scherm blijft staan. 
+"""
+
+
+
 #script: camera 2s laten opnemen met fixatiekruis, dan 3s 'smile', dan nog 2s opnemen 
 
 import numpy as np
@@ -36,8 +45,8 @@ while already_exists == True:
 
 #define some properties of our recording 
 #frames_per_second = 30 #heb ik van de test in file 'calculate_fps_camera')
-frames_per_second = 30.5 #met dit script kan webcam samplen aan 30.5 frames per seconde
-                        # als je met deze timing werkt toch 
+frames_per_second = 31 #met dit script kan webcam samplen aan 30.5 frames per seconde
+                        # als je met deze timing werkt toch precies
 my_res = '480p'
 
 # Set resolution for the video capture
@@ -165,11 +174,13 @@ for trial in range(n_smile + n_frown):
                 frown.draw()
             win.flip()
             startT = timer.getTime()
+            #from the next frame onwards pp. has been instructed to do the action 
             startF = frame_count + 1
         elif frame_count == int(frames_per_second*(sec_before_action + sec_action)):
             # fix.draw()
             win.flip()
             endT = timer.getTime()
+            #from the next frame onwards, pp. won't have to do the action anymore
             endF = frame_count + 1
         #cv2.imshow('frame',frame)
     end = timer.getTime()
@@ -207,3 +218,24 @@ core.quit()
 #     cv2.imshow('frame',frame)
 #     if cv2.waitKey(1) & 0xFF == ord('q'):
 #         break
+
+
+
+#compare output with and without waiting 2s before starting to record the video 
+#withouth waiting: 
+    # time after 31 frames recorded: [1.1645041 1.1994791 1.1836837 1.2001949]
+    # [32. 32. 32. 32.]
+    # time after 93 frames recorded: [3.2128685 3.233072  3.2164134 3.2332386]
+    # [94. 94. 94. 94.]
+    # total frames recorded : 117
+#with waiting 2 seconds: 
+    # time after 31 frames recorded: [0.99583   0.9830465 0.9853312 0.9643111]
+    # [32. 32. 32. 32.]
+    # time after 93 frames recorded[3.0298337 3.0335942 3.0329871 3.0141079]
+    # [94. 94. 94. 94.]
+    #total frames recorded: 124
+
+
+
+
+
