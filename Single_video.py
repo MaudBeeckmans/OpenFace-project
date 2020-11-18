@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Oct 29 14:50:29 2020
+Created on Tue Nov 17 08:08:50 2020
 
 @author: Maud
 """
@@ -53,32 +53,47 @@ def get_video_type(filename):
 
 
 #datafilename should include '.mp4' or '.avi' to create that type of output file
-my_res = '720p'
+my_res = '480p'
 filename = 'video-test' + my_res + '.avi'
 frames_per_second = 30 #heb ik van de test in file 'calculate_fps_camera')
 
 video_time = 2
 timer = core.Clock()
-store_time = np.empty(22)
-
-frame_count = 0
+timer2 = core.Clock()
+store_starttime = np.empty(int(frames_per_second*2+2))
+n_frames = video_time*frames_per_second
+store_betweentime = np.empty(n_frames)
 #create the possibility to capture video 
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 #create output possibility 
 out = cv2.VideoWriter(filename, get_video_type(filename), frames_per_second, get_dims(cap, my_res))
 core.wait(1)
 i = 0
+cutoff = 0.025
+this_frame = 1      #start at frame 1: first frame = number 1 
 timer.reset()
 #record video for certain time: 
-while timer.getTime() < video_time: 
-    store_time[i] = timer.getTime()
+while this_frame <= n_frames: 
     ret, frame = cap.read()
-    out.write(frame)
-    frame_count += 1
-    cv2.imshow('frame',frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-    i += 1
+    if timer.getTime() < cutoff and this_frame == 1: 
+        timer2.reset()
+    else: 
+        store_betweentime[this_frame-1] = timer.getTime()
+        out.write(frame)
+        this_frame += 1
+    timer.reset()
+print(this_frame-1)
+print(timer2.getTime())
+      #%%  
+# while timer.getTime() < video_time: 
+#     store_starttime[i] = timer.getTime()
+#     ret, frame = cap.read()
+#     out.write(frame)
+#     frame_count += 1
+#     cv2.imshow('frame',frame)
+#     if cv2.waitKey(1) & 0xFF == ord('q'):
+#         break
+#     i += 1
 end = timer.getTime()
 print(end)
 print(frame_count-1)
@@ -86,81 +101,12 @@ print(frame_count-1)
 cap.release()
 out.release()
 cv2.destroyAllWindows()
-prev_time =0
-for time in store_time: 
-    print(time-prev_time)
-    prev_time = time
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# import numpy as np
-# import cv2
-# from psychopy import core
-
-# n_frames = 100
-# store_between_time = np.empty(n_frames)
-# recorded_times = np.empty(n_frames)
-# clock = core.Clock()
-# clock2 = core.Clock()
-# # Define the codec and create VideoWriter object
-# fourcc = cv2.VideoWriter_fourcc(*'XVID')
-# fps = 28,5
-# dims = (640, 480)
-# out = cv2.VideoWriter('output.avi',fourcc, fps, dims)
+# between_time = np.empty(store_starttime.shape[0]-1)
+# prev_time = store_starttime[0]
 # count = 0
-# cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-# while(cap.isOpened() and count < n_frames):
-#     if count == 0: 
-#         clock.reset()
-#         clock2.reset()
-#     ret, frame = cap.read()
-#     recorded_time = clock2.getTime()
-#     between_t = clock.getTime()
-#     clock.reset()
-#     recorded_times[count] = recorded_time
-#     # store_between_time[count] = between_t
-#     if ret==True:
+# for time in store_starttime[1:]: 
+#     between_time[count] = time - prev_time
+#     prev_time = time
+#     count += 1
 
-#         # write the flipped frame
-#         out.write(frame)
-
-#         #cv2.imshow('frame',frame)
-#         count += 1
-#         print(count)
-#         if cv2.waitKey(1) & 0xFF == ord('q'):
-#             break
-#     else:
-#         break
-# total_time = clock.getTime()
-# print(total_time)
-# # print(store_between_time)
-# # Release everything if job is finished
-# cap.release()
-# out.release()
-# cv2.destroyAllWindows()
