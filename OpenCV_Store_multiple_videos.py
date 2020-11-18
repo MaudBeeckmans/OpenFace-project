@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Oct 29 14:45:34 2020
+Created on Wed Nov 18 11:37:02 2020
 
 @author: Maud
 """
@@ -12,24 +12,39 @@ Created on Thu Oct 29 14:45:34 2020
     probeer dit uit te voeren. Doe dit zolang het woord op het scherm blijft staan. 
 """
 
-#versions packages & python: 
-    # python: 3.8.6
+"""
+Verschillende zaken aangepast: 
+    * timings van elk frame worden mee bijgehouden in csv file 
+    * 1ste frames worden niet opgenomen: hadden enorm kleine tussentijd, dus cut-off gezet voor minimum 
+    tijd tussen de eerste frames
+       - gebruikte cut-offs: 0.025 voor 480p & 0.08 voor 720p
+Verschillende zaken uitgetest: 
+    * 480p: daglicht vs. kunstlicht vs. vrij donker
+       - vrij donker: 1frame duurt gemiddeld 0.6s (= 16,666 fps)
+       - daglicht & kunstlicht: 1frame duurt gemiddeld 0.033s (= 30fps)
+         --> steeds ca. dezelfde frames die wel langer duren (ca. 0.048s: frames 10, 24, 38, 52)
+         --> timings lijken wel redelijk consistent over trials heen 
+    * 720p: zelfde resultaten bij kunstlicht & vrij donker
+       - 1frame duurt gemiddeld 0.099s (ca. 10fps)
+       - alle frames wel redelijk consistent qua timing [0.09; 0.12[
+    * 1080p: werkt niet, 'opgeslagen video's' kan ik niet afspelen 
+==> voor goede timing best met 480p werken, misschien nog uittesten of een webcam betere resultaten kan halen
+"""
+
+#versions packages & python:  (Access via e.g. np.__version__)
+    # python: 3.6.11
     # numpy: '1.19.2'
     # cv2: '4.5.0'
-    # pandas: '1.1.3'
-    # psychopy: 2020.2.5
-    
-    
+    # pandas: '1.1.4'
+    #psychopy: 2020.2.5
 
 
-
-#script: camera 2s laten opnemen met fixatiekruis, dan 3s 'smile', dan nog 2s opnemen 
 
 import numpy as np
 import cv2, os, datetime, pandas
 from psychopy import core, visual, gui
 
-
+#%%
 #create a directory to store the video's 
 my_home_dir = os.getcwd()
     
@@ -49,15 +64,6 @@ while already_exists == True:
         gui2.addText("Try another number")
         gui2.show()
 
-
-
-
-#define some properties of our recording 
-#frames_per_second = 30 #heb ik van de test in file 'calculate_fps_camera')
-frames_per_second = 31 #met dit script kan webcam samplen aan 31 frames per seconde
-                        # als je met deze timing & resolutie van 480p werkt toch precies
-my_res = '480p'
-
 # Set resolution for the video capture
 # Function adapted from https://kirr.co/0l6qmh
 #adapt the resolution of the video you'll make (video is named cap)
@@ -72,7 +78,6 @@ STD_DIMENSIONS =  {
     "1080p": (1920, 1080),
     "4k": (3840, 2160),
 }
-
 
 # grab resolution dimensions and set video capture to it.
 def get_dims(cap, res='1080p'):
@@ -114,11 +119,19 @@ def test_camera_position():
     cam.release()
     cv2.destroyAllWindows()
 
+def check_double_frames(array = None): 
+    prev_frame = None
+    count = 0
+    for frame in array: 
+        if np.all(frame == prev_frame): 
+            print('repeated frames {}'.format(count))
+        prev_frame = frame
+        count += 1
 
 
 #%%
 
-sec_before_action = 1
+sec_before_action = 0.5
 sec_after_action = 1
 sec_action = 1
 
@@ -132,8 +145,8 @@ frown = visual.TextStim(win, text = 'Frown')
 
 
 type_options = np.array(['smile', 'frown'])
-n_smile = 2
-n_frown = 2
+n_smile = 5
+n_frown = 5
 n_trials = n_smile + n_frown
 #type_array_binary = np.concatenate([np.zeros(n_smile), np.ones(n_frown)])
 type_array = np.concatenate([np.repeat('smile', n_smile), np.repeat('frown', n_frown)])
@@ -141,25 +154,40 @@ type_array = np.concatenate([np.repeat('smile', n_smile), np.repeat('frown', n_f
 #np.random.shuffle(type_array_binary)
 np.random.shuffle(type_array)
 
-actionstart_frame = np.empty(n_trials)
+
 actionstart_time = np.empty(n_trials)
-actionend_frame = np.empty(n_trials)
 actionend_time = np.empty(n_trials)
+
+#define some properties of our recording 
+#frames_per_second = 30 #heb ik van de test in file 'calculate_fps_camera')
+frames_per_second = 31 #met dit script kan webcam samplen aan 30.5 frames per seconde
+                        # als je met deze timing werkt toch precies
+my_res = '480p'
+#cutoff = 0.08
+cutoff = 0.025
+#frames_per_second  = 10
+frames_per_second = 30
 
 test_camera_position()
 
-sec_before_action = 1
-sec_after_action = 1
+sec_before_action = 0.5
+sec_after_action = 0.5
 sec_action = 1
 
 video_time = sec_before_action + sec_action + sec_after_action
+n_frames = int(video_time*frames_per_second)
 timer = core.Clock()
+timer2 = core.Clock()
+
+store_frame = np.empty([n_frames, 480, 640, 3])
+
+store_betweentime = np.empty([n_frames, n_trials]) #for every trial its own column
 
 for trial in range(n_smile + n_frown): 
-    frame_count = 1
+    this_frame = 0
     #create the possibility to capture video 
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    
+    i = 0
     #select_type = int(type_array_binary[trial])
     #this_type = type_options[select_type]
     this_type = type_array[trial]
@@ -170,81 +198,54 @@ for trial in range(n_smile + n_frown):
     win.flip()
     core.wait(1)  #seems necessary to have valid timing, maybe camera !! to adapt a bit first 2 sec 
     timer.reset()
+    timer2.reset()
     #record video for certain time: 
-    while timer.getTime() < video_time: 
+    while this_frame < n_frames: 
         ret, frame = cap.read()
-        #timepoint = cap.get(cv2.CAP_PROP_FPS)#werkt niet wnr met webcam werken 
-        out.write(frame)
-        frame_count += 1
-        if frame_count == int(frames_per_second*sec_before_action): 
+        this_time = timer.getTime()
+        timer.reset()
+        if this_time < cutoff and this_frame == 0: 
+            timer2.reset()
+        else: 
+            store_betweentime[this_frame, trial] = this_time
+            out.write(frame)
+            this_frame += 1
+        if this_frame == int(frames_per_second*sec_before_action)-1: 
             if this_type == 'smile': 
                 smile.draw()
             else: 
                 frown.draw()
             win.flip()
-            startT = timer.getTime()
-            #from the next frame onwards pp. has been instructed to do the action 
-            startF = frame_count + 1
-        elif frame_count == int(frames_per_second*(sec_before_action + sec_action)):
-            # fix.draw()
+            startT = timer2.getTime()
+        elif this_frame == int(frames_per_second*(sec_before_action + sec_action))-1:
             win.flip()
-            endT = timer.getTime()
-            #from the next frame onwards, pp. won't have to do the action anymore
-            endF = frame_count + 1
-        #cv2.imshow('frame',frame)
-    end = timer.getTime()
+            endT = timer2.getTime()
+    end = timer2.getTime()
     print(end)
-    print(frame_count-1)
+    print(this_frame-1)
     cap.release()
     out.release()
     cv2.destroyAllWindows()
     actionstart_time[trial] = startT
-    actionstart_frame[trial] = startF  #from this frame onwards the action was shown the first time
     actionend_time[trial] = endT
-    actionend_frame[trial] = endF  #from this frame onwards the action cue was gone already
-    print('Action started at time {0}, frame {1}.'.format(startT, startF))
-    print('Action ended at time {0}, frame {1}.'.format(endT, endF))
+    print('Action started at time {0}.'.format(startT))
+    print('Action ended at time {0}.'.format(endT))
+    #check_double_frames(array = store_frame)
 win.close()
 
-
-big_array = np.column_stack([type_array, actionstart_time, actionstart_frame, actionend_time, 
-                             actionend_frame])
+#%%
+trials_array = np.column_stack([type_array, actionstart_time, actionend_time])
+big_array = np.repeat(trials_array, n_frames, axis = 0)
+store_betweentime = store_betweentime.T
+store_betweentime_all = store_betweentime.reshape(n_frames*n_trials)
+frames_counting = np.tile(np.arange(n_frames), n_trials)
+big_array = np.column_stack([big_array, store_betweentime_all, frames_counting])
 big_DF = pandas.DataFrame.from_records(big_array)
-big_DF.columns = ['Type', 'action started ms', 'action started F', 'action ended ms', 'action ended F']
-DF_file = 'Stored_info.csv'
+big_DF.columns = ['Type', 'action started ms', 'action ended ms', 'time between each frame', 'frame_count']
+DF_file = 'Stored_info' + str(number) + '.csv'
 big_DF.to_csv(DF_file, index = True)
 
 print(actionstart_time)
-print(actionstart_frame)
 print(actionend_time)
-print(actionend_frame)
 
 core.quit()
-#recor video untill you quit, pressing 'q'
-# while True:
-#     ret, frame = cap.read()
-#     out.write(frame)
-#     cv2.imshow('frame',frame)
-#     if cv2.waitKey(1) & 0xFF == ord('q'):
-#         break
-
-
-
-#compare output with and without waiting 2s before starting to record the video 
-#withouth waiting: 
-    # time after 31 frames recorded: [1.1645041 1.1994791 1.1836837 1.2001949]
-    # [32. 32. 32. 32.]
-    # time after 93 frames recorded: [3.2128685 3.233072  3.2164134 3.2332386]
-    # [94. 94. 94. 94.]
-    # total frames recorded : 117
-#with waiting 2 seconds: 
-    # time after 31 frames recorded: [0.99583   0.9830465 0.9853312 0.9643111]
-    # [32. 32. 32. 32.]
-    # time after 93 frames recorded[3.0298337 3.0335942 3.0329871 3.0141079]
-    # [94. 94. 94. 94.]
-    #total frames recorded: 124
-
-
-
-
-
