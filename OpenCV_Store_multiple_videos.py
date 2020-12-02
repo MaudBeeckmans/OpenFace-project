@@ -44,25 +44,54 @@ import numpy as np
 import cv2, os, datetime, pandas
 from psychopy import core, visual, gui
 
+#%%Variables that should be adapted based on the goals of the experiment
+try_out = 1         #0 or 1: 0 then different file per run; 1 then same file overwritten every run 
+my_res = '720p'#Select relevant resolution: 480p or 720p
+
+#amount of trials for each condition
+n_smile = 2
+n_frown = 2
+
+#duration of 1 trial (timing of the video capture)
+sec_before_action = 0.5
+sec_after_action = 1
+sec_action = 1
+
+#Select which webcam you want to use: 0 = implemented webcam; 1 = USB-webcam
+webcam_selection = 1
+
+
+if my_res == '480p': 
+    cutoff = 0.028
+    frames_per_second = 30
+else: 
+    cutoff = 0.08
+    frames_per_second  = 10
+
 #%%
 #create a directory to store the video's 
 my_home_dir = os.getcwd()
-    
-# display the gui
-info = { 'Naam': '','Gender': ['man', 'vrouw', 'derde gender'], 'Leeftijd': 0 , 'Nummer': 1}
-already_exists = True 
-while already_exists == True: 
-    info_dialogue = gui.DlgFromDict(dictionary=info, title='Information')
-    number = info['Nummer']
-    my_directory = my_home_dir + '/video' + str(number)
+
+if try_out == 0: 
+    # display the gui
+    info = { 'Naam': '','Gender': ['man', 'vrouw', 'derde gender'], 'Leeftijd': 0 , 'Nummer': 1}
+    already_exists = True 
+    while already_exists == True: 
+        info_dialogue = gui.DlgFromDict(dictionary=info, title='Information')
+        number = info['Nummer']
+        my_directory = my_home_dir + '/video' + str(number)
+        if not os.path.isdir(my_directory): 
+            os.mkdir(my_directory)
+            already_exists = False
+        else: 
+            gui2 = gui.Dlg(title = 'Error')
+            gui2.addText("Try another number")
+            gui2.show()
+else: 
+    my_directory = my_home_dir + '/video' + 'test'
     if not os.path.isdir(my_directory): 
         os.mkdir(my_directory)
-        os.chdir(my_directory)
-        already_exists = False
-    else: 
-        gui2 = gui.Dlg(title = 'Error')
-        gui2.addText("Try another number")
-        gui2.show()
+os.chdir(my_directory)
 
 # Set resolution for the video capture
 # Function adapted from https://kirr.co/0l6qmh
@@ -96,7 +125,7 @@ def get_dims(cap, res='1080p'):
 # Video Encoding, might require additional installs
 # Types of Codes: http://www.fourcc.org/codecs.php
 #2 types of video's very useful, which used is dependent on the datafile name above
-VIDEO_TYPE = {'avi': cv2.VideoWriter_fourcc(*'DIVX'),'mp4': cv2.VideoWriter_fourcc(*'DIVX')}
+VIDEO_TYPE = {'avi': cv2.VideoWriter_fourcc(*'XVID'),'mp4': cv2.VideoWriter_fourcc(*'XVID')}
 # https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_gui/py_video_display/py_video_display.html
 
 #datafilename should include '.mp4' or '.avi' to create that type of output file
@@ -106,8 +135,8 @@ def get_video_type(filename):
       return  VIDEO_TYPE[ext]
     return VIDEO_TYPE['avi']
 
-def test_camera_position(): 
-    cam = cv2.VideoCapture(0, cv2.CAP_DSHOW) #CAP_DSHOW toegevoegd zodat camera direct begint met opnemen
+def test_camera_position(webcam = 0): 
+    cam = cv2.VideoCapture(webcam, cv2.CAP_DSHOW) #CAP_DSHOW toegevoegd zodat camera direct begint met opnemen
     while(True): 
         # Capture the video frame by frame 
         ret, frame = cam.read() 
@@ -131,9 +160,7 @@ def check_double_frames(array = None):
 
 #%%
 
-sec_before_action = 0.5
-sec_after_action = 1
-sec_action = 1
+
 
 video_time = sec_before_action + sec_action + sec_after_action
 
@@ -145,8 +172,6 @@ frown = visual.TextStim(win, text = 'Frown')
 
 
 type_options = np.array(['smile', 'frown'])
-n_smile = 5
-n_frown = 5
 n_trials = n_smile + n_frown
 #type_array_binary = np.concatenate([np.zeros(n_smile), np.ones(n_frown)])
 type_array = np.concatenate([np.repeat('smile', n_smile), np.repeat('frown', n_frown)])
@@ -158,17 +183,8 @@ np.random.shuffle(type_array)
 actionstart_time = np.empty(n_trials)
 actionend_time = np.empty(n_trials)
 
-#define some properties of our recording 
-#frames_per_second = 30 #heb ik van de test in file 'calculate_fps_camera')
-frames_per_second = 31 #met dit script kan webcam samplen aan 30.5 frames per seconde
-                        # als je met deze timing werkt toch precies
-my_res = '480p'
-#cutoff = 0.08
-cutoff = 0.025
-#frames_per_second  = 10
-frames_per_second = 30
 
-test_camera_position()
+test_camera_position(webcam = webcam_selection)
 
 sec_before_action = 0.5
 sec_after_action = 0.5
@@ -186,7 +202,7 @@ store_betweentime = np.empty([n_frames, n_trials]) #for every trial its own colu
 for trial in range(n_smile + n_frown): 
     this_frame = 0
     #create the possibility to capture video 
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(webcam_selection, cv2.CAP_DSHOW)
     i = 0
     #select_type = int(type_array_binary[trial])
     #this_type = type_options[select_type]
@@ -206,6 +222,7 @@ for trial in range(n_smile + n_frown):
         timer.reset()
         if this_time < cutoff and this_frame == 0: 
             timer2.reset()
+            print(frame.shape)
         else: 
             store_betweentime[this_frame, trial] = this_time
             out.write(frame)
@@ -241,9 +258,12 @@ store_betweentime_all = store_betweentime.reshape(n_frames*n_trials)
 frames_counting = np.tile(np.arange(n_frames), n_trials)
 big_array = np.column_stack([big_array, store_betweentime_all, frames_counting])
 big_DF = pandas.DataFrame.from_records(big_array)
-big_DF.columns = ['Type', 'action started ms', 'action ended ms', 'time between each frame', 'frame_count']
-DF_file = 'Stored_info' + str(number) + '.csv'
-big_DF.to_csv(DF_file, index = True)
+big_DF.columns = ['Type', 'action_started_ms', 'action_ended_ms', 'time_between_each_frame', 'frame_count']
+if try_out == 0: 
+    DF_file = 'Stored_info' + str(number) + '.csv'
+else: 
+    DF_file = 'Stored_info_test.csv'
+big_DF.to_csv(DF_file, index = False)
 
 print(actionstart_time)
 print(actionend_time)
