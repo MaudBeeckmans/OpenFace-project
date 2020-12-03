@@ -198,7 +198,7 @@ timer2 = core.Clock()
 store_frame = np.empty([n_frames, 480, 640, 3])
 
 store_betweentime = np.empty([n_frames, n_trials]) #for every trial its own column
-
+store_cumultime = np.empty([n_frames, n_trials])
 for trial in range(n_smile + n_frown): 
     this_frame = 0
     #create the possibility to capture video 
@@ -219,12 +219,14 @@ for trial in range(n_smile + n_frown):
     while this_frame < n_frames: 
         ret, frame = cap.read()
         this_time = timer.getTime()
+        cumul_time = timer2.getTime()
         timer.reset()
         if this_time < cutoff and this_frame == 0: 
             timer2.reset()
             print(frame.shape)
         else: 
             store_betweentime[this_frame, trial] = this_time
+            store_cumultime[this_frame, trial] = cumul_time
             out.write(frame)
             this_frame += 1
         if this_frame == int(frames_per_second*sec_before_action)-1: 
@@ -251,14 +253,17 @@ for trial in range(n_smile + n_frown):
 win.close()
 
 #%%
+trial_count = np.repeat(np.arange(n_trials), n_frames).reshape(n_frames*n_trials)
 trials_array = np.column_stack([type_array, actionstart_time, actionend_time])
 big_array = np.repeat(trials_array, n_frames, axis = 0)
 store_betweentime = store_betweentime.T
 store_betweentime_all = store_betweentime.reshape(n_frames*n_trials)
+store_cumultime = store_cumultime.T
+store_cumultime_all = store_cumultime.reshape(n_frames*n_trials)
 frames_counting = np.tile(np.arange(n_frames), n_trials)
-big_array = np.column_stack([big_array, store_betweentime_all, frames_counting])
+big_array = np.column_stack([trial_count, big_array, store_betweentime_all, store_cumultime_all, frames_counting])
 big_DF = pandas.DataFrame.from_records(big_array)
-big_DF.columns = ['Type', 'action_started_ms', 'action_ended_ms', 'time_between_each_frame', 'frame_count']
+big_DF.columns = ['Trial_number', 'Type', 'action_started_ms', 'action_ended_ms', 'time_between_each_frame', 'time_passed', 'frame_count']
 if try_out == 0: 
     DF_file = 'Stored_info' + str(number) + '.csv'
 else: 
