@@ -12,7 +12,7 @@ Created on Thu Apr 22 14:11:22 2021
 @author: Maud
 """
 
-"""""
+"""
 * When actually doing the experiment: 
     - fullscreen = True
     - used_monitor should be adapted
@@ -21,7 +21,7 @@ Created on Thu Apr 22 14:11:22 2021
    - so e.g. file stored in "C://Users/experiment"
    - then images stored in "C://Users/experiment/Images"
 * Question: Should we ask participants to fixate or not? As we might be interested in the eye gaze as well.
-    """"
+"""
 
 import numpy as np
 import cv2, os, time
@@ -209,7 +209,7 @@ circle = visual.Circle(win, radius = 0.5, lineColor = 'black')
 feedback = visual.TextStim(win, text = '', color = 'white')
 
 all_color_options = np.array([['orange', 'blue'], ['pink', 'green'], ['brown', 'yellow']])
-resp_options = np.array(['s', 'l'])
+resp_options = np.array(['s', 'l', 'esc', 'escape'])
 
 correct_dimensions = ['color', 'affect', 'affect']
 
@@ -290,7 +290,9 @@ name = 'Maud'
 message(message_text = 'Dag ' + name, duration = 1)
 win.flip()
 
+
 for block in range(n_blocks): 
+    Quit = False
     instructions = all_instructions[block]
     message(message_text = instructions, align = 'left')
     win.flip()
@@ -387,6 +389,9 @@ for block in range(n_blocks):
                             feedback_text = 'Te traag'    
                             accuracy = -1
                             response = [None, None]
+                        elif np.array(response).squeeze()[0] == 'esc' or np.array(response).squeeze()[0] == 'escape': 
+                            Quit = True
+                            break
                         elif np.array(response).squeeze()[0] == correct_resp: 
                             feedback_text = 'Juist'
                             accuracy = 1
@@ -409,7 +414,10 @@ for block in range(n_blocks):
             #store relevant variables in an array 
             store_cap_start[block, trial, frame_count] = start_capture
             store_cap_end[block, trial, frame_count] = end_capture
-            
+            if Quit == True: 
+                break
+        if Quit == True: 
+                break    
         store_appearT[block, trial] = appearT
         store_disappearT[block, trial] = disappearT
         all_accuracies[block, trial] = accuracy
@@ -418,7 +426,7 @@ for block in range(n_blocks):
         out.release()
         
         
-        
+message(message_text = 'Dit is het einde van het experiment. Bedankt voor je deelname.')        
     
 win.close()
 cap.release()
@@ -467,3 +475,9 @@ if try_out == 0:
 else: 
     output_file = 'Stored_info_test.csv'
 big_DF.to_csv(output_file, index = False)
+
+
+meta_file = os.path.join(video_directory, str("demographics_participant" + str(number) + '.csv'))
+info.pop('Naam')
+meta_data_df = pd.DataFrame(info, index = [0])
+meta_data_df.to_csv(meta_file, index = False)
