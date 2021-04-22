@@ -12,6 +12,17 @@ Created on Thu Apr 22 14:11:22 2021
 @author: Maud
 """
 
+"""""
+* When actually doing the experiment: 
+    - fullscreen = True
+    - used_monitor should be adapted
+    - webcam_selection = 1
+* OASIS pictures should be in a subfolder called 'Images' within the same folder as the code. 
+   - so e.g. file stored in "C://Users/experiment"
+   - then images stored in "C://Users/experiment/Images"
+* Question: Should we ask participants to fixate or not? As we might be interested in the eye gaze as well.
+    """"
+
 import numpy as np
 import cv2, os, time
 import pandas as pd
@@ -164,7 +175,7 @@ if estimated_fps - wanted_fps < 0.5:
     print('Camera cannot sample fast enough')
     core.quit()
 
-
+test_camera_position(webcam = webcam_selection)
 
 #%%select pictures from the OASIS database
 file = os.path.join(os.getcwd(), "OASIS.csv")
@@ -202,6 +213,53 @@ resp_options = np.array(['s', 'l'])
 
 correct_dimensions = ['color', 'affect', 'affect']
 
+#%%template for the instructions
+message_template = visual.TextStim(win, text = '')
+
+def message(message_text = '', duration = 0, response_keys = ['space'], color = 'white', height = 0.1, 
+            wrapWidth = 1.9, flip = True, position = (0,0), speedy = 0, align = 'center'):
+    message_template.text = message_text
+    message_template.pos = position
+    message_template.units = "norm"
+    message_template.color = color
+    message_template.height = height 
+    message_template.wrapWidth = wrapWidth 
+    message_template.alignText = align
+    message_template.draw()
+    if flip == True: 
+        win.flip()
+        if speedy == 1: 
+            core.wait(0.01)
+        else: 
+            if duration == 0:
+                #when duration = 0, wait till participant presses the right key (keys allowed can be found in response_keys, default allowed key is 'space')
+                event.waitKeys(keyList = response_keys)
+            else: 
+                core.wait(duration)
+
+
+#%%Define the instructions
+instructions1 = str('In dit blok zal er telkens een cirkel in het midden van het scherm verschijnen.'
+                    + ' Als deze cirkel ORANJE is druk \'S\'; als deze BLAUW is, druk \'L\'.'
+                    + ' De foto\'s die verschijnen zijn niet van belang voor de taak.'
+                    + ' Probeer zo SNEL en zo ACCURAAT mogelijk te antwoorden.')
+instructions2 = str('In dit blok zal er telkens een foto in het midden van het scherm verschijnen.'
+                    + ' Als deze foto eerder NIET LEUK is druk \'S\'; als deze eerder LEUK is, druk \'L\'.'
+                    + ' De cirkels die ook in het midden verschijnen zijn niet van belang voor de taak.'
+                    + ' Probeer zo SNEL en zo ACCURAAT mogelijk te antwoorden.')
+instructions3a = str('Dit blok is gelijkaardig aan vorig blok.'
+                    + ' Er zal er weer telkens een foto in het midden van het scherm verschijnen.'
+                    + ' Als deze foto eerder NIET LEUK is druk \'S\'; als deze eerder LEUK is, druk \'L\'.'
+                    + ' De cirkels die ook in het midden verschijnen zijn niet val belang voor de taak.'
+                    + ' Probeer zo SNEL en zo ACCURAAT mogelijk te antwoorden.')
+instructions3b = str('Wat extra is in dit blok is dat je elke trial ook met een gezichtsuitdrukking gaat antwoorden.'
+                     + ' Als de foto NIET LEUK is, frons dan; als de foto LEUK is, smile dan.'
+                     + ' Probeer dit te doen zolang de foto op het scherm verschijnt.'
+                     + ' Dit lijkt misschien wat raar, maar het is toch heel belangrijk dat je dit zo goed mogelijk doet.')
+
+
+all_instructions = np.array([instructions1, instructions2, instructions3a, instructions3b])
+
 #%% define the arrays to store relevant info in etc. 
 store_cap_start = np.empty([n_blocks, n_blocktrials, n_frames])
 store_cap_end = np.empty([n_blocks, n_blocktrials, n_frames])
@@ -216,7 +274,7 @@ all_accuracies = np.empty([n_blocks, n_blocktrials])
 all_corResps = np.empty([n_blocks, n_blocktrials])
 all_RTs= np.empty([n_blocks, n_blocktrials])
 #%%Define the window & stimuli for each trial 
-test_camera_position(webcam = webcam_selection)
+
 
 timer = core.Clock()
 RT_clock = core.Clock()
@@ -226,15 +284,19 @@ cap = cv2.VideoCapture(webcam_selection, cv2.CAP_DSHOW)
 
 #info.pop('Naam')
 output_file = os.path.join(video_directory, str("output_participant" + str(number) + '.csv'))
-thisExp = data.ExperimentHandler(dataFileName = output_file, extraInfo = info)
 
-
+spatie = 'Druk op spatie om verder te gaan'
+name = 'Maud'
+message(message_text = 'Dag ' + name, duration = 1)
+win.flip()
 
 for block in range(n_blocks): 
-    feedback.text = 'Next block'
-    feedback.draw()
+    instructions = all_instructions[block]
+    message(message_text = instructions, align = 'left')
     win.flip()
-    time.sleep(1)
+    if block == 2: 
+        message(message_text = instructions3b, align = 'left')
+        win.flip()
     block_directory = os.path.join(video_directory, str('block' + str(block+1)))
     if not os.path.isdir(block_directory): 
             os.mkdir(block_directory)
@@ -399,10 +461,9 @@ big_array = np.column_stack([big_array, store_pics, store_colors, store_accuraci
 big_DF = pd.DataFrame.from_records(big_array)
 big_DF.columns = np.concatenate([['Trial_number', 'block_count', 'Frame_count', 'Reading_started', 'Wanted_start', 'Deviation_wanted', 
                   'Reading_ended', 'Action_started', 'Action_ended'], OASIS_columns, ['Affect', 'color', 'accuracy', 'corResp', 'RT']])
+
 if try_out == 0: 
-    DF_file = 'Stored_info' + str(number) + '.csv'
+    output_file = os.path.join(video_directory, str("output_participant" + str(number) + '.csv'))
 else: 
-    DF_file = 'Stored_info_test.csv'
-big_DF.to_csv(DF_file, index = False)
-
-
+    output_file = 'Stored_info_test.csv'
+big_DF.to_csv(output_file, index = False)
