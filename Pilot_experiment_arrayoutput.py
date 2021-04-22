@@ -32,15 +32,15 @@ frames_per_second = wanted_fps
 n_frames_estimation = 100
 
 #duration of 1 trial (timing of the video capture)
-sec_fix = 0.5
-sec_stim = 0.5
-sec_fb = 0.5
+sec_fix = 1
+sec_stim = 2
+sec_fb = 1
 sec_blank = 1
 
 #stimuli
 n_blocks = 3
 
-n_per_cond_block = 10
+n_per_cond_block = 75
 n_pos = n_per_cond_block*3
 n_neg = n_per_cond_block*3
 n_trials = n_pos + n_neg
@@ -404,11 +404,5 @@ if try_out == 0:
 else: 
     DF_file = 'Stored_info_test.csv'
 big_DF.to_csv(DF_file, index = False)
-
-
-
-
-
-
 
 
