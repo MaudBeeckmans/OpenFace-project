@@ -91,6 +91,7 @@ if try_out == 0:
     while already_exists == True: 
         info_dialogue = gui.DlgFromDict(dictionary=info, title='Information')
         number = info['Nummer']
+        name = info['Naam']
         video_directory = os.path.join(my_output_dir, str('Participant' + str(number)))
         if not os.path.isdir(video_directory): 
             os.mkdir(video_directory)
@@ -286,7 +287,6 @@ cap = cv2.VideoCapture(webcam_selection, cv2.CAP_DSHOW)
 output_file = os.path.join(video_directory, str("output_participant" + str(number) + '.csv'))
 
 spatie = 'Druk op spatie om verder te gaan'
-name = 'Maud'
 message(message_text = 'Dag ' + name, duration = 1)
 win.flip()
 
@@ -370,13 +370,15 @@ for block in range(n_blocks):
                         #if - elif: define which stimulus should appear on screen (based on the condition we're in)
                         this_pic.draw()
                         circle.draw()
+                        event.clearEvents(eventType = 'keyboard')
                         win.flip()
                         RT_clock.reset()
                         #measure appearT after flip to be sure the stimulus is visible at this moment
                         appearT = timer.getTime()
-                        response = event.getKeys(keyList = resp_options, timeStamped = RT_clock)
                         appeared = True
-                    elif response == []: 
+                        response = event.getKeys(keyList = resp_options, timeStamped = RT_clock)
+                        
+                    elif response == [] and appeared == True: 
                         response = event.getKeys(keyList = resp_options, timeStamped = RT_clock)
                 elif timer.getTime() >= (sec_fix + sec_stim):
                     if disappeared == False: 
@@ -389,10 +391,10 @@ for block in range(n_blocks):
                             feedback_text = 'Te traag'    
                             accuracy = -1
                             response = [None, None]
-                        elif np.array(response).squeeze()[0] == 'esc' or np.array(response).squeeze()[0] == 'escape': 
+                        elif np.all(np.array(response).squeeze()[0] == 'esc') or np.all(np.array(response).squeeze()[0] == 'escape'): 
                             Quit = True
                             break
-                        elif np.array(response).squeeze()[0] == correct_resp: 
+                        elif np.all(np.array(response).squeeze()[0] == correct_resp): 
                             feedback_text = 'Juist'
                             accuracy = 1
                             response = np.array(response).squeeze()
@@ -402,6 +404,7 @@ for block in range(n_blocks):
                             response = np.array(response).squeeze()
                         feedback.text = feedback_text
                         feedback.draw()
+                        print(response)
                         win.flip()
                         feedback_on_screen = True
             #start the capture & store the frame after termination of the while-loop
