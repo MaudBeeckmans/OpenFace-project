@@ -12,17 +12,6 @@ Created on Thu Apr 22 14:11:22 2021
 @author: Maud
 """
 
-"""
-* When actually doing the experiment: 
-    - fullscreen = True
-    - used_monitor should be adapted
-    - webcam_selection = 1
-* OASIS pictures should be in a subfolder called 'Images' within the same folder as the code. 
-   - so e.g. file stored in "C://Users/experiment"
-   - then images stored in "C://Users/experiment/Images"
-* Question: Should we ask participants to fixate or not? As we might be interested in the eye gaze as well.
-"""
-
 import numpy as np
 import cv2, os, time
 import pandas as pd
@@ -35,8 +24,8 @@ from psychopy import core, visual, gui, event, data
 try_out = 0       #0 or 1: 0 then different file per run; 1 then same file overwritten every run 
 my_res = '480p'#Select relevant resolution: 480p or 720p
 
-fullscreen = False
-used_monitor = 'Laptop'
+fullscreen = True
+used_monitor = 'ExpMonitor'
 
 wanted_fps = 15
 frames_per_second = wanted_fps
@@ -58,6 +47,7 @@ n_trials = n_pos + n_neg
 n_blocktrials = n_per_cond_block * 2
 
 #Select which webcam you want to use: 0 = implemented webcam; 1 = USB-webcam
+#!! When computer has no implemented webcam, the USB-webcam is accesed via webcam_selection = 0
 webcam_selection = 0
 
 #define the output file of the video
@@ -127,7 +117,8 @@ def get_dims(cap, res='480p'):
 
 
 def test_camera_position(webcam = 0): 
-    cam = cv2.VideoCapture(webcam, cv2.CAP_DSHOW) #CAP_DSHOW toegevoegd zodat camera direct begint met opnemen
+    #cam = cv2.VideoCapture(webcam, cv2.CAP_DSHOW) #CAP_DSHOW toegevoegd zodat camera direct begint met opnemen
+    cam = cv2.VideoCapture(webcam)
     while(True): 
         ret, frame = cam.read() 
         cv2.imshow('frame', frame) 
@@ -153,7 +144,8 @@ def check_double_frames(array = None):
 #estimate the framerate of your camera empirically
 def estimate_fps(webcam = 0,wanted_fps = 15, num_frames = 100):
     import time
-    cap = cv2.VideoCapture(webcam, cv2.CAP_DSHOW) 
+    #cap = cv2.VideoCapture(webcam, cv2.CAP_DSHOW) 
+    cap = cv2.VideoCapture(webcam)
     get_dims(cap, res = my_res)
     #cap.set(cv2.CAP_PROP_FPS, wanted_fps)
     print("Capturing {0} frames".format(num_frames))
@@ -179,10 +171,13 @@ if estimated_fps - wanted_fps < 0.5:
 test_camera_position(webcam = webcam_selection)
 
 #%%select pictures from the OASIS database
-file = os.path.join(os.getcwd(), "OASIS.csv")
-OASIS_df = pd.read_csv(file, sep = ',')
+file = os.path.join(os.getcwd(), "OASIS_test.csv")
+OASIS_df = pd.read_csv(file, sep = ';')
 OASIS_sorted = OASIS_df.sort_values(by=['Valence_mean'])
-OASIS_sorted_np = OASIS_sorted.to_numpy()
+#OASIS_sorted_np = OASIS_sorted.to_numpy()
+OASIS_sorted_np = OASIS_sorted.values
+
+
 
 OASIS_columns = OASIS_df.columns
 
@@ -202,11 +197,13 @@ pos_pics = np.column_stack([pos_pics, pos_array])
 #%%create the relevant stimuli for all trials
 if fullscreen == True: 
     win = visual.Window(fullscr = True, monitor = used_monitor, units = 'deg')
+    win.mouseVisible = False
 else: 
     win = visual.Window((800, 600), monitor = used_monitor, units = 'deg')
+    win.mouseVisible = False
 
 fix = visual.TextStim(win, text = '+')
-circle = visual.Circle(win, radius = 0.5, lineColor = 'black')
+circle = visual.Circle(win, radius = 0.3, lineColor = 'black')
 feedback = visual.TextStim(win, text = '', color = 'white')
 
 all_color_options = np.array([['orange', 'blue'], ['pink', 'green'], ['brown', 'yellow']])
@@ -238,25 +235,42 @@ def message(message_text = '', duration = 0, response_keys = ['space'], color = 
             else: 
                 core.wait(duration)
 
+instr_rep = str(' Probeer steeds zo SNEL en zo ACCURAAT mogelijk te antwoorden.'
+                + '\nLet op, de cirkel en foto blijven op het scherm voor 2 seconden ook al antwoord je sneller.'
+                + ' Nadien krijg je feedback op je antwoord.')
+instr_rep2 = str('\n\nAls je nog vragen hebt, aarzel niet om deze aan de proefleider te stellen.'
+                    + '\nAls alles duidelijk is, druk dan op spatie om deze blok te starten. (duurt ca. 10 min)')
 
+instr_rep3 = str('\n\nAls je nog vragen hebt, aarzel niet om deze aan de proefleider te stellen.'
+                    + '\nAls alles duidelijk is, druk dan op spatie om het vervolg van de instructies te lezen.')
 #%%Define the instructions
 instructions1 = str('In dit blok zal er telkens een cirkel in het midden van het scherm verschijnen.'
                     + ' Als deze cirkel ORANJE is druk \'S\'; als deze BLAUW is, druk \'L\'.'
                     + ' De foto\'s die verschijnen zijn niet van belang voor de taak.'
-                    + ' Probeer zo SNEL en zo ACCURAAT mogelijk te antwoorden.')
+                    + instr_rep
+                    +'\n\n ORANJE = \'S\'        BLAUW = \'L\''
+                    +instr_rep2)
 instructions2 = str('In dit blok zal er telkens een foto in het midden van het scherm verschijnen.'
-                    + ' Als deze foto eerder NIET LEUK is druk \'S\'; als deze eerder LEUK is, druk \'L\'.'
-                    + ' De cirkels die ook in het midden verschijnen zijn niet van belang voor de taak.'
-                    + ' Probeer zo SNEL en zo ACCURAAT mogelijk te antwoorden.')
+                    + ' Als je denkt dat de meeste mensen deze foto als eerder NEGATIEF zouden beoordelen, druk \'S\'; Als je denkt dat de meeste mensen deze foto als eerder POSITIEF zouden beoordelen, druk \'L\'.'
+                    + ' De cirkels die in het midden verschijnen zijn niet meer van belang voor de taak.'
+                    + instr_rep 
+                    + '\n\nFOTO NEGATIEF = \'S\'        FOTO POSITIEF = \'L\''
+                    + instr_rep2)
 instructions3a = str('Dit blok is gelijkaardig aan vorig blok.'
                     + ' Er zal er weer telkens een foto in het midden van het scherm verschijnen.'
-                    + ' Als deze foto eerder NIET LEUK is druk \'S\'; als deze eerder LEUK is, druk \'L\'.'
-                    + ' De cirkels die ook in het midden verschijnen zijn niet val belang voor de taak.'
-                    + ' Probeer zo SNEL en zo ACCURAAT mogelijk te antwoorden.')
-instructions3b = str('Wat extra is in dit blok is dat je elke trial ook met een gezichtsuitdrukking gaat antwoorden.'
-                     + ' Als de foto NIET LEUK is, frons dan; als de foto LEUK is, smile dan.'
-                     + ' Probeer dit te doen zolang de foto op het scherm verschijnt.'
-                     + ' Dit lijkt misschien wat raar, maar het is toch heel belangrijk dat je dit zo goed mogelijk doet.')
+                    + ' Als je denkt dat de meeste mensen deze foto als eerder NEGATIEF zouden beoordelen, druk \'S\'; Als je denkt dat de meeste mensen deze foto als eerder POSITIEF zouden beoordelen, druk \'L\'.'
+                    + ' De cirkels die in het midden verschijnen zijn niet van belang voor de taak.'
+                    + instr_rep 
+                    + '\n\nFOTO NEGATIEF = \'S\'        FOTO POSITIEF = \'L\''
+                    + instr_rep3)
+instructions3b = str('LET OP! \nJe zal nu ook met een GEZICHTSUITDRUKKING moeten antwoorden.'
+                     + ' Als je denkt dat de meeste mensen deze foto als eerder NEGATIEF zouden beoordelen, FRONS dan; Als je denkt dat de meeste mensen deze foto als eerder POSITIEF zouden beoordelen, LACH dan.'
+                     + ' Doe dit zolang de foto\'s op het scherm verschijnen.'
+                     + ' Je moet dus zowel met het toestenbord als met een gezichtsuitdrukking moeten antwoorden.'
+                     + ' Dit voelt mogelijk onwennig, maar is absoluut noodzakelijk voor het succesvol voltooien van het experiment.'
+                     + instr_rep 
+                     + '\n\nFOTO NEGATIEF = FRONS        FOTO POSITIEF = LACH'
+                     + instr_rep2)
 
 
 all_instructions = np.array([instructions1, instructions2, instructions3a, instructions3b])
@@ -281,8 +295,8 @@ timer = core.Clock()
 RT_clock = core.Clock()
 
 #Start the actual process of video-capturing 
-cap = cv2.VideoCapture(webcam_selection, cv2.CAP_DSHOW)
-
+#cap = cv2.VideoCapture(webcam_selection, cv2.CAP_DSHOW)
+cap = cv2.VideoCapture(webcam_selection)
 #info.pop('Naam')
 output_file = os.path.join(video_directory, str("output_participant" + str(number) + '.csv'))
 
@@ -317,7 +331,7 @@ for block in range(n_blocks):
     if correct_dim == "color": 
         corResp_array = (block_colors == color_options[1])*1
     elif correct_dim == "affect": 
-        corResp_array = (block_pics[:, 10]== affect_options[1])*1
+        corResp_array = (block_pics[:, -1]== affect_options[1])*1
     
     if block == 0: 
         all_pics = block_pics
@@ -334,9 +348,10 @@ for block in range(n_blocks):
     
     
     for trial in range(n_blocktrials):
-        this_type = block_pics[trial, 10]
-        this_pic_name = os.path.join(my_home_dir, 'Images', str(block_pics[trial, 1] + '.jpg'))
-        this_pic = visual.ImageStim(win, image = this_pic_name, units = 'deg', size = (8, 8))
+        this_type = block_pics[trial, -1]
+        print(this_type)
+        this_pic_name = os.path.join(my_home_dir, 'Images', str(block_pics[trial, 0] + '.jpg'))
+        this_pic = visual.ImageStim(win, image = this_pic_name, units = 'deg', size = (9, 9))
         circle.fillColor = block_colors[trial]
         
         
@@ -484,3 +499,4 @@ meta_file = os.path.join(video_directory, str("demographics_participant" + str(n
 info.pop('Naam')
 meta_data_df = pd.DataFrame(info, index = [0])
 meta_data_df.to_csv(meta_file, index = False)
+
