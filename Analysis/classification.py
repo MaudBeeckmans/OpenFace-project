@@ -16,13 +16,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 import pandas as pd
 
-pp_numbers = np.array(["6", "10"])
+from Evoked_plots import load_data
 
-datafile_path = "C:\\Users\\Maud\\Documents\\Psychologie\\1ste_master_psychologie\\Masterproef\\Final_versions\\OpenFace_processing"
-data_path = os.path.join(datafile_path, str('data_processed_concat' + pp_numbers[0] + 'to' + 
-                                          pp_numbers[-1] + '_AUstatic.rds'))
-data = pyreadr.read_r(data_path) # also works for RData
-all_data_df = data[None]
+all_data_df = load_data()
 
 #%%
 """Create some functions to use in the loop"""
@@ -43,17 +39,21 @@ from sklearn.preprocessing import StandardScaler
 scaler = StandardScaler()
 
 """Select which subset of the data you'd like to use"""
-participants = np.arange(int(pp_numbers[0]), int(pp_numbers[1])+1, 1)
+participants = np.arange(0, 10, 1)
 blocks = np.array([0, 1, 2])
 formats = ['--o', '--x', '--v']
 colors = ['black', 'blue', 'black']
+frames = np.arange(0, 60, 1)
 
-for pp_select in participants: 
-    print("we're at pp {}".format(pp_select))
+store_all_means = np.empty([participants.shape[0], blocks.shape[0], frames.shape[0]])
+store_all_std = np.empty([participants.shape[0], blocks.shape[0], frames.shape[0]])
+
+for pp in participants: 
+    print("we're at pp {}".format(pp))
     fig, axs = plt.subplots(1, 1)
     axs.set_ylim(0, 1.05)
     
-    sub_data_df = all_data_df.loc[all_data_df["pp_number"] == pp_select]
+    sub_data_df = all_data_df.loc[all_data_df["pp_number"] == pp+1]
     for block_select in blocks: 
     
         data_df = sub_data_df.loc[sub_data_df["block_count"] == block_select] # 60 frames per trial, 150 trials per block: 9000 rows
@@ -66,14 +66,6 @@ for pp_select in participants:
         print(np.unique(ordinal_encoder.categories_))
         data_df.insert(2, "Cond_binary", data_df_cond_encoded, True)
         
-        """one hot encoding: to use when working with more than 2 categories
-            - doesn't work accurately yet: only encodes everything as 1 now"""
-        # from sklearn.preprocessing import OneHotEncoder
-        # cat_encoder = OneHotEncoder()
-        # cond_1hot = cat_encoder.fit_transform(data_df['Affect'].to_numpy().reshape(1, -1))
-        # cond_1hot = cond_1hot.toarray()
-    
-    
         all_mean = []
         all_std = []
         
@@ -130,11 +122,9 @@ for pp_select in participants:
             
             all_mean.append(mean)
             all_std.append(std)
-        
+        store_all_means[pp, block_select, :] = all_mean
+        store_all_std[pp, block_select, :] = all_std
         #Plot the classification outcome
-        frames = np.arange(0, 60, 1)
-        
-        
         plt.errorbar(frames, all_mean, yerr = all_std, fmt = formats[block_select], color = colors[block_select], label = 'block {}'.format(block_select))
         
     axs.plot(frames, np.repeat(0.5, len(frames)), color = 'red', label = 'Chance level')
@@ -142,9 +132,22 @@ for pp_select in participants:
     axs.plot([46,46],[0,5], lw = 2, linestyle ="dashed", color ='y', label ='disappeared')
     handles, labels = axs.get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper right")
-    fig.suptitle('Classification for pp {}'.format(pp_select))
-    fig.savefig('FperF_allAUs_pp{}.png'.format(pp_select))
+    fig.suptitle('Classification for pp {}'.format(pp))
+    # fig.savefig('FperF_allAUs_pp{}.png'.format(pp))
     
-"""Questions: 
-    - Will we compare different models?
-      --> the k-fold cross-validation: good to see which models perform best?"""
+#%%
+fig, axs = plt.subplots(1, 1)
+axs.set_ylim(0, 1.05)
+for block in blocks: 
+    means = np.mean(store_all_means[:, block, :], axis = 0)
+    stds = np.std(store_all_means[:, block, :], axis = 0)
+    plt.errorbar(frames, means, yerr = stds, fmt = formats[block], color = colors[block], label = 'block {}'.format(block))
+axs.plot(frames, np.repeat(0.5, len(frames)), color = 'red', label = 'Chance level')
+axs.plot([15,15],[0,5], lw = 2, linestyle ="dashed", color ='y', label ='appeared')
+axs.plot([46,46],[0,5], lw = 2, linestyle ="dashed", color ='y', label ='disappeared')
+handles, labels = axs.get_legend_handles_labels()
+handles = np.delete(handles, [1, 2])
+labels = np.delete(labels, [1, 2])
+fig.legend(handles, labels, loc="upper right")
+fig.suptitle('Classification scores averaged over all pp')
+
