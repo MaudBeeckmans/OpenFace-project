@@ -4,14 +4,6 @@ Created on Thu Apr 22 22:16:50 2021
 
 @author: Maud
 """
-
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Apr 22 14:11:22 2021
-
-@author: Maud
-"""
-
 import numpy as np
 import cv2, os, time
 import pandas as pd
@@ -26,6 +18,7 @@ my_res = '480p'#Select relevant resolution: 480p or 720p
 
 fullscreen = True
 used_monitor = 'ExpMonitor'
+#used_monitor = 'Laptop'
 
 wanted_fps = 15
 frames_per_second = wanted_fps
@@ -47,7 +40,6 @@ n_trials = n_pos + n_neg
 n_blocktrials = n_per_cond_block * 2
 
 #Select which webcam you want to use: 0 = implemented webcam; 1 = USB-webcam
-#!! When computer has no implemented webcam, the USB-webcam is accesed via webcam_selection = 0
 webcam_selection = 0
 
 #define the output file of the video
@@ -214,7 +206,7 @@ correct_dimensions = ['color', 'affect', 'affect']
 #%%template for the instructions
 message_template = visual.TextStim(win, text = '')
 
-def message(message_text = '', duration = 0, response_keys = ['space'], color = 'white', height = 0.1, 
+def message(message_text = '', duration = 0, response_keys = ['space'], color = 'white', height = 0.07, 
             wrapWidth = 1.9, flip = True, position = (0,0), speedy = 0, align = 'center'):
     message_template.text = message_text
     message_template.pos = position
@@ -266,12 +258,16 @@ instructions3a = str('Dit blok is gelijkaardig aan vorig blok.'
 instructions3b = str('LET OP! \nJe zal nu ook met een GEZICHTSUITDRUKKING moeten antwoorden.'
                      + ' Als je denkt dat de meeste mensen deze foto als eerder NEGATIEF zouden beoordelen, FRONS dan; Als je denkt dat de meeste mensen deze foto als eerder POSITIEF zouden beoordelen, LACH dan.'
                      + ' Doe dit zolang de foto\'s op het scherm verschijnen.'
-                     + ' Je moet dus zowel met het toestenbord als met een gezichtsuitdrukking moeten antwoorden.'
+                     + ' Je zal dus zowel met het toestenbord als met een gezichtsuitdrukking moeten antwoorden.'
                      + ' Dit voelt mogelijk onwennig, maar is absoluut noodzakelijk voor het succesvol voltooien van het experiment.'
-                     + instr_rep 
-                     + '\n\nFOTO NEGATIEF = FRONS        FOTO POSITIEF = LACH'
-                     + instr_rep2)
+                     + instr_rep)
+instr_3b = visual.TextStim(win, text = instructions3b, pos = (0, 0.55), alignText = 'left', wrapWidth = 1.9, height = 0.07, units = 'norm')
+instr_3c = visual.TextStim(win, text = "FOTO NEGATIEF = FRONS", pos = (-0.5, 0), wrapWidth = 1.9, height= 0.07, units = 'norm')
+instr_3d = visual.TextStim(win, text = "FOTO POSITIEF = LACH", pos = (0.5, 0), wrapWidth = 1.9, height= 0.07, units = 'norm')
+instr_3e = visual.TextStim(win, text = instr_rep2, pos = (0, -0.8), wrapWidth = 1.9, height= 0.07, units = 'norm')
 
+pic_frown = visual.ImageStim(win, 'Pic_frown.jpg', pos = (-0.5, -0.4), size = (0.5, 0.6), units = 'norm')
+pic_smile = visual.ImageStim(win, 'Pic_smile.jpg', pos = (0.5, -0.4), size = (0.5, 0.6), units = 'norm')
 
 all_instructions = np.array([instructions1, instructions2, instructions3a, instructions3b])
 
@@ -311,8 +307,14 @@ for block in range(n_blocks):
     message(message_text = instructions, align = 'left')
     win.flip()
     if block == 2: 
-        message(message_text = instructions3b, align = 'left')
+        instr_3b.draw()
+        instr_3c.draw()
+        instr_3d.draw()
+        instr_3e.draw()
+        pic_frown.draw()
+        pic_smile.draw()
         win.flip()
+        event.waitKeys(keyList = ['space'])
     block_directory = os.path.join(video_directory, str('block' + str(block+1)))
     if not os.path.isdir(block_directory): 
             os.mkdir(block_directory)
@@ -349,7 +351,6 @@ for block in range(n_blocks):
     
     for trial in range(n_blocktrials):
         this_type = block_pics[trial, -1]
-        print(this_type)
         this_pic_name = os.path.join(my_home_dir, 'Images', str(block_pics[trial, 0] + '.jpg'))
         this_pic = visual.ImageStim(win, image = this_pic_name, units = 'deg', size = (9, 9))
         circle.fillColor = block_colors[trial]
@@ -419,7 +420,6 @@ for block in range(n_blocks):
                             response = np.array(response).squeeze()
                         feedback.text = feedback_text
                         feedback.draw()
-                        print(response)
                         win.flip()
                         feedback_on_screen = True
             #start the capture & store the frame after termination of the while-loop
@@ -499,4 +499,3 @@ meta_file = os.path.join(video_directory, str("demographics_participant" + str(n
 info.pop('Naam')
 meta_data_df = pd.DataFrame(info, index = [0])
 meta_data_df.to_csv(meta_file, index = False)
-
