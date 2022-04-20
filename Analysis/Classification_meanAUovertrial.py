@@ -23,12 +23,12 @@ Successful_data = all_data[all_data["success"] == 1]
 """Create some functions to use in the loop"""
 def display_scores(scores):
     print("Scores:", scores)
-    print("Mean:", scores.mean())
-    print("Standard deviation:", scores.std())
+    print("Mean:", np.nanmean(scores))
+    print("Standard deviation:", np.nanstd(scores))
         
 def end_scores(scores): 
-    mean = scores.mean()
-    std = scores.std()
+    mean = np.nanmean(scores)
+    std = np.nanstd(scores)
     return mean, std 
 
 from sklearn.preprocessing import OrdinalEncoder
@@ -37,6 +37,7 @@ ordinal_encoder = OrdinalEncoder()
 from sklearn.preprocessing import StandardScaler
 scaler = StandardScaler()
 from scipy.stats import wilcoxon
+from sklearn import svm
 
 
 #%% Poging: gemiddelde over frame 20-45 gebruiken voor classificatie 
@@ -51,6 +52,8 @@ frames_before_stimulus = np.arange(0, 15, 1)
 frames_during_stimulus = np.arange(15, 45, 1)
 frames_after_stimulus = np.arange(45, 60, 1)
 
+included_frames = [frames_before_stimulus, frames_during_stimulus, frames_after_stimulus]
+
 
 store_all_means = np.empty([participants.shape[0], blocks.shape[0]])
 store_all_std = np.empty([participants.shape[0], blocks.shape[0]])
@@ -59,16 +62,14 @@ AU_col = [col for col in all_data.columns if ('AU' in col and '_r' in col)]
 fixed_cols = ['pp_number', 'block_count', 'Frame_count', 'Trial_number', 'Affect']
 
 
-store_all_means = np.empty([participants.shape[0], blocks.shape[0], 3])
-store_all_std = np.empty([participants.shape[0], blocks.shape[0], 3])
+store_all_means = np.empty([participants.shape[0], blocks.shape[0], len(included_frames)])
+store_all_std = np.empty([participants.shape[0], blocks.shape[0], len(included_frames)])
 
 
 
 
 for pp in participants: 
     print("we're at pp {}".format(pp))
-    # fig, axs = plt.subplots(1, 1)
-    # axs.set_ylim(0, 1.05)
     
     pp_data = Successful_data.loc[Successful_data["pp_number"] == pp+1]
     test_data = pp_data[np.concatenate([fixed_cols, AU_col])]
@@ -87,7 +88,7 @@ for pp in participants:
         unique_values, indices = np.unique(block_data['Trial_number'], return_index = True)
         shorter_data = block_data.iloc[indices, :]
         i = 0
-        for frames_of_interest in [frames_before_stimulus, frames_during_stimulus, frames_after_stimulus]: 
+        for frames_of_interest in included_frames: 
             
             relevant_frames_data = block_data[block_data['Frame_count'].isin(frames_of_interest)]
             
@@ -102,7 +103,6 @@ for pp in participants:
             y = y.astype(np.uint8)
                 
             """The actual classfication"""
-            from sklearn import svm
             classifier = svm.SVC(kernel = 'linear', C = 1)
             cv = StratifiedKFold(n_splits=5, random_state=1, shuffle=True)
                 
@@ -117,16 +117,6 @@ for pp in participants:
             store_all_std[pp, block_select, i] = std
             
             i += 1
-        #Plot the classification outcome
-        # plt.errorbar(20, mean, yerr = std, fmt = formats[block_select], color = colors[block_select], label = 'block {}'.format(block_select))
-        
-    # axs.plot(frames, np.repeat(0.5, len(frames)), color = 'red', label = 'Chance level')
-    # axs.plot([15,15],[0,5], lw = 2, linestyle ="dashed", color ='y', label ='appeared')
-    # axs.plot([46,46],[0,5], lw = 2, linestyle ="dashed", color ='y', label ='disappeared')
-    # handles, labels = axs.get_legend_handles_labels()
-    # fig.legend(handles, labels, loc="upper right")
-    # fig.suptitle('Classification for pp {}'.format(pp+1))
-    # fig.savefig('FperF_allAUs_pp{}.png'.format(pp+1))
 #%%
 
 formats = ['--o', '--o', '--o']
@@ -141,12 +131,13 @@ plt.xticks(np.array([0, 1, 2]), labels)
 for block in blocks: 
     ax = axs[block]
     ax.set_title("Block  {}".format(block))
-    for frame_subset in range(3): 
+    for frame_subset in range(len(included_frames)): 
         means = np.nanmean(store_all_means[:, block, frame_subset], axis = 0)
         stds = np.nanstd(store_all_means[:, block, frame_subset], axis = 0)
         ax.errorbar(frame_subset, means, yerr = stds, fmt = formats[block], color = colors[block], label = '')
     
         statistic, p_value = wilcoxon(store_all_means[:, block, frame_subset] - 0.50)
+        """Problem: p-values do take nan into account I think!"""
         p_values[block, frame_subset] = p_value
         if p_value <= 0.05: ax.plot(frame_subset, 1, '*', color = 'grey', linewidth = 0.1)
     
@@ -156,7 +147,7 @@ fig.tight_layout()
 print(p_values)
 # [0.85895492 0.01367188 0.00195312]
 
-
+"""Still something wrong: nan values, do not understand!"""
 # ==> Idea: boxplots instead of mean & std plotting? 
 
 
