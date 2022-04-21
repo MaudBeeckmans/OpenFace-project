@@ -67,56 +67,68 @@ store_all_std = np.empty([participants.shape[0], blocks.shape[0], len(included_f
 
 
 
-
+pp_count = 0
 for pp in participants: 
     print("we're at pp {}".format(pp))
     
     pp_data = Successful_data.loc[Successful_data["pp_number"] == pp+1]
+    # print("PP data: {}".format(np.any(pp_data.isna())))
     test_data = pp_data[np.concatenate([fixed_cols, AU_col])]
     
     Cond_cat = test_data[['Affect']]
     test_data_encoded = ordinal_encoder.fit_transform(Cond_cat)
-    print(np.unique(ordinal_encoder.categories_))
     test_data.insert(2, "Cond_binary", test_data_encoded, True)
-    
+    # print("Test data: {}".format(np.any(test_data.isna())))
     "Creëer nieuwe dataset: voor elke trial slechts 1 value: gemiddelden AU"
     
     
     #mean AU activation over all frames, but have to do this per trial!!
+    block_count = 0
     for block_select in blocks:
         block_data = test_data[test_data["block_count"] == block_select]
+        # print("Block data: {}".format(np.any(block_data.isna())))
         unique_values, indices = np.unique(block_data['Trial_number'], return_index = True)
-        shorter_data = block_data.iloc[indices, :]
+        shorter_data = block_data.iloc[indices, :].copy(deep=False)
+        # print("Shorter data: {}".format(np.any(shorter_data.isna())))
         i = 0
         for frames_of_interest in included_frames: 
             
             relevant_frames_data = block_data[block_data['Frame_count'].isin(frames_of_interest)]
+            # print("Frames data: {}".format(np.any(relevant_frames_data.isna())))
             
-            meanAU_data = np.array([np.mean(relevant_frames_data[relevant_frames_data['Trial_number'] == trial][AU_col], 0) for trial in unique_values])
+            """Probleem met de nan values zit bij de mean AU data"""
+            # meanAU_data = np.array([np.mean(relevant_frames_data[relevant_frames_data['Trial_number'] == trial][AU_col].to_numpy(), 0) for trial in unique_values])
+            meanAU_data = np.array([relevant_frames_data[relevant_frames_data['Trial_number'] == trial][AU_col].mean() for trial in unique_values])
+            meanAU_df = pd.DataFrame(meanAU_data, columns = AU_col)
+            # print("mean AU data: {}".format(np.any(meanAU_df.isna())))
+
             
-            
-            shorter_data.loc[:, AU_col] = meanAU_data
-            
+            shorter_data.iloc[:, 6::] = meanAU_data[:, :]
+            cleaned_data = shorter_data.dropna()
+            # print(np.any(cleaned_data.isna()))
             """Do the classification"""
-            x, y = shorter_data[AU_col], shorter_data['Cond_binary']
+            x, y = cleaned_data[AU_col], cleaned_data['Cond_binary']
             #transform the y-data to integers, as this is often required by ML algorithms
             y = y.astype(np.uint8)
-                
+            
+            
             """The actual classfication"""
             classifier = svm.SVC(kernel = 'linear', C = 1)
             cv = StratifiedKFold(n_splits=5, random_state=1, shuffle=True)
                 
             """work with k-fold cross-validation"""
-            print("\nNow doing k-fold cross-validation")
+            # print("\nNow doing k-fold cross-validation")
             cross_scores = cross_val_score(classifier, x, y, cv=cv, scoring="accuracy", n_jobs = -1)
-            
-            display_scores(cross_scores)
+            # cross_scores = cross_val_score(classifier, x, y, cv=cv, scoring="accuracy", error_score='raise')
+            # display_scores(cross_scores)
             mean, std = end_scores(cross_scores)
             
-            store_all_means[pp, block_select, i] = mean
-            store_all_std[pp, block_select, i] = std
+            store_all_means[pp_count, block_count, i] = mean
+            store_all_std[pp_count, block_count , i] = std
             
             i += 1
+        block_count += 1
+    pp_count += 1
 #%%
 
 formats = ['--o', '--o', '--o']
@@ -147,7 +159,7 @@ fig.tight_layout()
 print(p_values)
 # [0.85895492 0.01367188 0.00195312]
 
-"""Still something wrong: nan values, do not understand!"""
+"""Still something wrong: nan values, do not understand! - Think I fixed it""" 
 # ==> Idea: boxplots instead of mean & std plotting? 
 
 
