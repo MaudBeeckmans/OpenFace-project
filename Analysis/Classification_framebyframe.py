@@ -38,7 +38,7 @@ ordinal_encoder = OrdinalEncoder()
 from sklearn.preprocessing import StandardScaler
 scaler = StandardScaler()
 from scipy.stats import wilcoxon
-
+from statsmodels.stats import multitest
 
 #%%
 """Select which subset of the data you'd like to use"""
@@ -67,7 +67,6 @@ for pp in participants:
         """Put the conditions to ordinal values"""
         Cond_cat = data_df[['Affect']]
         data_df_cond_encoded = ordinal_encoder.fit_transform(Cond_cat)
-        print(np.unique(ordinal_encoder.categories_))
         data_df.insert(2, "Cond_binary", data_df_cond_encoded, True)
         
         all_mean = []
@@ -118,9 +117,9 @@ for pp in participants:
             
             
             """work with k-fold cross-validation"""
-            print("\nNow doing k-fold cross-validation")
+            # print("\nNow doing k-fold cross-validation")
             # cv = StratifiedKFold(n_splits=10, random_state=1, shuffle=True)
-            cv = StratifiedKFold(n_splits=5, random_state=1, shuffle=True)
+            cv = StratifiedKFold(n_splits=5, shuffle=True)
             
             # cross_scores = cross_val_score(classifier, train_x_standardized, train_y, cv=10, scoring="accuracy")
             cross_scores = cross_val_score(classifier, x, y, cv=cv, scoring="accuracy", n_jobs = -1)
@@ -145,6 +144,9 @@ for pp in participants:
     # fig.savefig('FperF_allAUs_pp{}.png'.format(pp+1))
 #%%
 """Figure to show the average classification over participants"""
+
+frames_of_interest = np.arange(15, 46, 1)
+
 fig, axs = plt.subplots(1, 1)
 axs.set_ylim(0, 1.05)
 significant_frames = np.array([])
@@ -154,12 +156,18 @@ for block in blocks:
     stds = np.std(store_all_means[:, block, :], axis = 0)
     plt.errorbar(frames, means, yerr = stds, fmt = formats[block], color = colors[block], label = 'block {}'.format(block))
     for frame in frames: 
-        statistic, p_value = wilcoxon(store_all_means[:, block, frame] - 0.50)
+        statistic, p_value = wilcoxon(store_all_means[:, block, frame] - 0.50, alternative = 'greater')
         p_values[block, frame] = p_value
-        if p_value <= 0.05: 
-            axs.plot(frame, 0.3-block*0.05, 'o', color = colors[block])
-            significant_frames = np.append(significant_frames, frame)
-        print(p_value)
+        # if p_value <= 0.05: 
+        #     axs.plot(frame, 0.3-block*0.05, 'o', color = colors[block])
+        #     significant_frames = np.append(significant_frames, frame)
+    
+    signif_frames, corrected_pvals = multitest.fdrcorrection(p_values[block, frames_of_interest], alpha=0.05, method='indep', is_sorted=False)
+    
+    if np.any(signif_frames == True): axs.plot(frames_of_interest[signif_frames], np.repeat(0.3-block*0.05, frames_of_interest[signif_frames].shape[0]), 'o', color = colors[block])
+    
+    
+        
 axs.plot(frames, np.repeat(0.5, len(frames)), color = 'black', label = 'Chance level')
 axs.plot([15,15],[0,5], lw = 0.5, linestyle ="dashed", color ='black', label ='appeared')
 axs.plot([46,46],[0,5], lw = 0.5, linestyle ="dashed", color ='black', label ='disappeared')
