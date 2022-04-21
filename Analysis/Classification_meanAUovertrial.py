@@ -104,6 +104,8 @@ for pp in participants:
 
             
             shorter_data.iloc[:, 6::] = meanAU_data[:, :]
+            # print(np.sum(np.sum(shorter_data.isna(), axis = 1) != 0))
+            
             cleaned_data = shorter_data.dropna()
             # print(np.any(cleaned_data.isna()))
             """Do the classification"""
@@ -114,8 +116,8 @@ for pp in participants:
             
             """The actual classfication"""
             classifier = svm.SVC(kernel = 'linear', C = 1)
-            cv = StratifiedKFold(n_splits=5, random_state=1, shuffle=True)
-                
+            # cv = StratifiedKFold(n_splits=5, random_state=75472, shuffle=True)
+            cv = StratifiedKFold(n_splits=5, shuffle=True)
             """work with k-fold cross-validation"""
             # print("\nNow doing k-fold cross-validation")
             cross_scores = cross_val_score(classifier, x, y, cv=cv, scoring="accuracy", n_jobs = -1)
@@ -148,10 +150,10 @@ for block in blocks:
         stds = np.nanstd(store_all_means[:, block, frame_subset], axis = 0)
         ax.errorbar(frame_subset, means, yerr = stds, fmt = formats[block], color = colors[block], label = '')
     
-        statistic, p_value = wilcoxon(store_all_means[:, block, frame_subset] - 0.50)
+        statistic, p_value = wilcoxon(store_all_means[:, block, frame_subset] - 0.50, alternative = 'greater')
         """Problem: p-values do take nan into account I think!"""
         p_values[block, frame_subset] = p_value
-        if p_value <= 0.05: ax.plot(frame_subset, 1, '*', color = 'grey', linewidth = 0.1)
+        if p_value <= 0.05: ax.plot(frame_subset, 1, '*', color = 'black')
     
 fig.suptitle('Classification scores averaged over all pp')
 fig.tight_layout()
@@ -167,7 +169,17 @@ print(p_values)
 
 
 
+"""
+5-fold: p-values
+[[0.19335938 0.67786844 0.6953125 ]
+ [0.43164062 0.02087926 0.01367188]
+ [0.21312247 0.00195312 0.00195312]]
 
+10-fold: p-values
+[[0.13085938 0.4921875  0.375     ]
+ [0.19335938 0.21352435 0.01953125]
+ [0.76689822 0.00195312 0.00195312]]
+"""
 
 
 
