@@ -14,11 +14,13 @@ from matplotlib import pyplot as plt
 import pandas as pd
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import StratifiedKFold
-from Functions import import_data
+from Functions import import_data, delete_unsuccessful, delete_incorrect_last2blocks
 
 openface_map = r"C:\Users\maudb\Documents\Psychologie\2e master psychologie\Master thesis\Pilot_Master_thesis\OpenFace output"
 all_data = import_data(datafile_path = openface_map)
-Successful_data = all_data[all_data["success"] == 1]
+accurate_data = delete_incorrect_last2blocks(data = all_data)
+Successful_data = delete_unsuccessful(data = accurate_data)
+# Successful_data = all_data[all_data["success"] == 1]
 
 
 """Create some functions to use in the loop"""
@@ -145,7 +147,7 @@ for pp in participants:
 #%%
 """Figure to show the average classification over participants"""
 
-frames_of_interest = np.arange(15, 46, 1)
+frames_of_interest = np.arange(15, 60, 1)
 
 fig, axs = plt.subplots(1, 1)
 axs.set_ylim(0, 1.05)
@@ -159,15 +161,18 @@ for block in blocks:
         statistic, p_value = wilcoxon(store_all_means[:, block, frame] - 0.50, alternative = 'greater')
         p_values[block, frame] = p_value
         # if p_value <= 0.05: 
-        #     axs.plot(frame, 0.3-block*0.05, 'o', color = colors[block])
+        #     axs.plot(frame, 0.4-block*0.05, 'o', color = colors[block], markersize = 2)
         #     significant_frames = np.append(significant_frames, frame)
-    
+
     signif_frames, corrected_pvals = multitest.fdrcorrection(p_values[block, frames_of_interest], alpha=0.05, method='indep', is_sorted=False)
+    if np.any(signif_frames == True): axs.plot(frames_of_interest[signif_frames], np.repeat(0.35-block*0.05, frames_of_interest[signif_frames].shape[0]), 'o', color = colors[block], markersize = 5)
+# """Below: code if corrections are to happen for p_values over all blocks simultaneously"""
+# signif_frames, corrected_pvals = multitest.fdrcorrection(p_values[:, frames_of_interest].reshape(blocks.shape[0]*frames_of_interest.shape[0]), alpha=0.05, method='indep', is_sorted=False)    
+# signif_frames = signif_frames.reshape((blocks.shape[0], frames_of_interest.shape[0]))
+# for block in blocks: 
+#     if np.any(signif_frames[block, :] == True): axs.plot(frames_of_interest[signif_frames[block, :]], np.repeat(0.2-block*0.05, frames_of_interest[signif_frames[block, :]].shape[0]), 'o', color = colors[block], markersize = 5)
     
-    if np.any(signif_frames == True): axs.plot(frames_of_interest[signif_frames], np.repeat(0.3-block*0.05, frames_of_interest[signif_frames].shape[0]), 'o', color = colors[block])
-    
-    
-        
+       
 axs.plot(frames, np.repeat(0.5, len(frames)), color = 'black', label = 'Chance level')
 axs.plot([15,15],[0,5], lw = 0.5, linestyle ="dashed", color ='black', label ='appeared')
 axs.plot([46,46],[0,5], lw = 0.5, linestyle ="dashed", color ='black', label ='disappeared')
