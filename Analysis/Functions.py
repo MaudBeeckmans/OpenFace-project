@@ -59,7 +59,20 @@ def select_columns(all_data = None, fix_cols = None, cols_of_interest = None):
     data_selection = all_data.loc[:, columns]
     return data_selection
 
+#%% Functions to clean the data
+def delete_unsuccessful(data): 
+    Successful_data = data[data["success"] == 1]
+    return Successful_data
 
+def delete_incorrect_last2blocks(data): 
+    Cleaned_data = data.loc[data["block_count"] == 0]
+    for block in [1, 2]: 
+        Block_data = data.loc[data["block_count"] == block]
+        Cleaned_Block_data = Block_data.drop(Block_data[Block_data.accuracy <= 0].index)
+        # print(np.all(Cleaned_Block_data.accuracy == 1))    
+        Cleaned_data = pd.concat([Cleaned_data, Cleaned_Block_data])
+    return Cleaned_data
+    
 
 
 
