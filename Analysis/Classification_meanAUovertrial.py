@@ -13,11 +13,14 @@ from matplotlib import pyplot as plt
 import pandas as pd
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import StratifiedKFold
-from Functions import import_data
+from Functions import import_data, delete_unsuccessful, delete_incorrect_last2blocks
 
 openface_map = r"C:\Users\maudb\Documents\Psychologie\2e master psychologie\Master thesis\Pilot_Master_thesis\OpenFace output"
 all_data = import_data(datafile_path = openface_map)
-Successful_data = all_data[all_data["success"] == 1]
+all_data = import_data(datafile_path = openface_map)
+accurate_data = delete_incorrect_last2blocks(data = all_data)
+Successful_data = delete_unsuccessful(data = accurate_data)
+# Successful_data = all_data[all_data["success"] == 1]
 
 
 """Create some functions to use in the loop"""
@@ -144,7 +147,8 @@ labels = ['F 0-15', 'F 15-45', 'F 45-60']
 plt.xticks(np.array([0, 1, 2]), labels)
 for block in blocks: 
     ax = axs[block]
-    ax.set_title("Block  {}".format(block))
+    ax.set_title("Block  {}".format(block+1))
+    ax.axhline(y = 0.5, label = "Chance level", color = 'k')    
     for frame_subset in range(len(included_frames)): 
         means = np.nanmean(store_all_means[:, block, frame_subset], axis = 0)
         stds = np.nanstd(store_all_means[:, block, frame_subset], axis = 0)
@@ -154,8 +158,10 @@ for block in blocks:
         """Problem: p-values do take nan into account I think!"""
         p_values[block, frame_subset] = p_value
         if p_value <= 0.05: ax.plot(frame_subset, 1, '*', color = 'black')
-    
+
 fig.suptitle('Classification scores averaged over all pp')
+handles, labels = axs[0].get_legend_handles_labels()
+fig.legend(handles, labels, loc="center right")
 fig.tight_layout()
 # fig.savefig('F_per_F_averageaccuracyoverallpp.png')
 print(p_values)
