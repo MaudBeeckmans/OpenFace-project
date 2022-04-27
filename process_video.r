@@ -21,15 +21,16 @@ n_trials_pp <- c()#store amount of trials for each pp
 meta_data <- c()#this will contain the meta-data of all files eventually 
 # which participants do you want to include in the output file? 
   #(each participant number should be filled in manually)
-pp_numbers <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)  #change to number of pp we've recorded 
+pp_numbers <- c(1:12)  #change to number of pp we've recorded 
 # How many blocks (n_blocks) did you record per participant and how are these nubered (blocks)? 
   #(Each block is a separate folder, each participant has a separate folder for each block)
-blocks <- c(1, 2, 3)
-n_blocks <- 3
+blocks <- c(1:3)
+n_blocks <- length(blocks)
 
 # Set paths
   #Below: where is your FeatureExtraction.exe file (from OpenFace software)
-OpenFace_path <- paste0("C:\\Users\\Maud\\Documents\\Psychologie\\1ste_master_psychologie\\Masterproef\\OpenFace_2.2.0_win_x64", '/', "FeatureExtraction.exe")
+OpenFace_path <- paste0("C:\\Users\\maudb\\Documents\\Psychologie\\2e_master_psychologie\\Master_thesis\\OpenFace_2.2.0_win_x64", '/', "FeatureExtraction.exe")
+
 
 #2. The big loop: loop over all participants to 
   #(1) Process all video's 
@@ -38,8 +39,9 @@ OpenFace_path <- paste0("C:\\Users\\Maud\\Documents\\Psychologie\\1ste_master_ps
 #PP_loop: loops over all participants that you've defined at line 20 'pp_numbers'
 for (this_pp in pp_numbers){
 #Where can we find all the information from the experiment for this participant? 
-pp_path <- paste0("C:\\Users\\Maud\\Documents\\Psychologie\\1ste_master_psychologie\\Masterproef\\Participanten_Pilot", 
-                    "\\participant", this_pp)
+pp_path <- paste0("C:\\Users\\maudb\\Documents\\Psychologie\\2e_master_psychologie\\Master_thesis\\Experiment_2022\\Ruwe_videos", 
+                    "\\Participant", this_pp)
+
 for (this_block in blocks){
 #Where can we find the video's for this block and this participant ?   
 video_files_path <- paste0(pp_path, "\\block", this_block)
@@ -87,6 +89,10 @@ for (i in 1:length(ordered_files)) {
   print("---------------------------------------------------------------")
   # the actual shell command
     #Important here: whether you'd like to use AU_static or AU_dynamic!
+  
+  
+  
+  # Think I have to change the file names in the path to not include spaces?
   shell(paste0(OpenFace_path, # the path to open face
                ' -f ', ordered_files[i], # the file to process
                ' -au_static ',' -out_dir ', output_files_path)) # the output folder
