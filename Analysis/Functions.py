@@ -64,6 +64,10 @@ def delete_unsuccessful(data):
     Successful_data = data[data["success"] == 1]
     return Successful_data
 
+def delete_participant(data, pp_to_delete): 
+    Cleaned_data = data[data["pp_number"] != pp_to_delete]
+    return Cleaned_data
+
 def delete_incorrect_last2blocks(data): 
     Cleaned_data = data.loc[data["block_count"] == 0]
     for block in [1, 2]: 
