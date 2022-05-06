@@ -76,6 +76,25 @@ def delete_incorrect_last2blocks(data):
         # print(np.all(Cleaned_Block_data.accuracy == 1))    
         Cleaned_data = pd.concat([Cleaned_data, Cleaned_Block_data])
     return Cleaned_data
+
+def delete_pp_block(data, pp, block): 
+    Other_blocks = data.loc[data["block_count"] != block]
+    Block_to_delete = data.loc[data["block_count"] == block]
+    PP_block_deleted = Block_to_delete.drop(Block_to_delete[Block_to_delete.pp_number == pp].index)
+    Cleaned_data = pd.concat([Other_blocks, PP_block_deleted])
+    return Cleaned_data
+
+#%%
+"""Create some functions to use in the loop"""
+def display_scores(scores):
+    print("Scores:", scores)
+    print("Mean:", np.nanmean(scores))
+    print("Standard deviation:", np.nanstd(scores))
+        
+def end_scores(scores): 
+    mean = np.mean(scores) # misschien mean, want nan values mogen eigenlijk niet he 
+    std = np.std(scores)
+    return mean, std 
     
 
 
