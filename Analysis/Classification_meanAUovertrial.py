@@ -13,40 +13,43 @@ from matplotlib import pyplot as plt
 import pandas as pd
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import StratifiedKFold
-from Functions import import_data, delete_unsuccessful, delete_incorrect_last2blocks
+from Functions import import_data, delete_unsuccessful, delete_incorrect_last2blocks, delete_participant
+from Functions import delete_pp_block, display_scores, end_scores
+from statsmodels.stats import multitest
+from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import StandardScaler
+from scipy.stats import wilcoxon
+from sklearn import svm
 
-openface_map = r"C:\Users\maudb\Documents\Psychologie\2e master psychologie\Master thesis\Pilot_Master_thesis\OpenFace output"
-all_data = import_data(datafile_path = openface_map)
-all_data = import_data(datafile_path = openface_map)
+delete_below85 = True
+
+
+openface_map = r"C:\Users\maudb\Documents\Psychologie\2e_master_psychologie\Master_thesis\Pilot_Master_thesis\OpenFace_output"
+all_data = import_data(pp_numbers = np.array([["1", "10"],["11", "20"], ["21", "34"]]), datafile_path = openface_map)
 accurate_data = delete_incorrect_last2blocks(data = all_data)
 Successful_data = delete_unsuccessful(data = accurate_data)
 # Successful_data = all_data[all_data["success"] == 1]
 
+Successful_data["pp_number"] = np.where(Successful_data["pp_number"] == 317, 17, 
+                                        Successful_data["pp_number"])
 
-"""Create some functions to use in the loop"""
-def display_scores(scores):
-    print("Scores:", scores)
-    print("Mean:", np.nanmean(scores))
-    print("Standard deviation:", np.nanstd(scores))
-        
-def end_scores(scores): 
-    mean = np.nanmean(scores)
-    std = np.nanstd(scores)
-    return mean, std 
+Successful_data2 = delete_participant(Successful_data, pp_to_delete = 34)
 
-from sklearn.preprocessing import OrdinalEncoder
-ordinal_encoder = OrdinalEncoder()
-
-from sklearn.preprocessing import StandardScaler
-scaler = StandardScaler()
-from scipy.stats import wilcoxon
-from sklearn import svm
+if delete_below85 == True: 
+    # delete pp. 28, block 2 and pp. 30 block 2 (accuracy < 85%)
+    Successful_data2 = delete_pp_block(Successful_data2, 28, 1) # block number as stored (2nd block thus deleted)
+    Successful_data2 = delete_pp_block(Successful_data2, 30, 1)
 
 
 #%% Poging: gemiddelde over frame 20-45 gebruiken voor classificatie 
 
+k_fold = 10
+
+scaler = StandardScaler()
+ordinal_encoder = OrdinalEncoder()
+
 """Select which subset of the data you'd like to use"""
-participants = np.arange(0, 10, 1)
+participants = np.unique(Successful_data2['pp_number']).astype(int)
 blocks = np.array([0, 1, 2])
 
 # frames = np.arange(20, 46, 1)
@@ -69,12 +72,10 @@ store_all_means = np.empty([participants.shape[0], blocks.shape[0], len(included
 store_all_std = np.empty([participants.shape[0], blocks.shape[0], len(included_frames)])
 
 
-
-pp_count = 0
 for pp in participants: 
     print("we're at pp {}".format(pp))
     
-    pp_data = Successful_data.loc[Successful_data["pp_number"] == pp+1]
+    pp_data = Successful_data.loc[Successful_data["pp_number"] == pp]
     # print("PP data: {}".format(np.any(pp_data.isna())))
     test_data = pp_data[np.concatenate([fixed_cols, AU_col])]
     
@@ -87,8 +88,8 @@ for pp in participants:
     
     #mean AU activation over all frames, but have to do this per trial!!
     block_count = 0
-    for block_select in blocks:
-        block_data = test_data[test_data["block_count"] == block_select]
+    for block in blocks:
+        block_data = test_data[test_data["block_count"] == block]
         # print("Block data: {}".format(np.any(block_data.isna())))
         unique_values, indices = np.unique(block_data['Trial_number'], return_index = True)
         shorter_data = block_data.iloc[indices, :].copy(deep=False)
@@ -120,21 +121,20 @@ for pp in participants:
             """The actual classfication"""
             classifier = svm.SVC(kernel = 'linear', C = 1)
             # cv = StratifiedKFold(n_splits=5, random_state=75472, shuffle=True)
-            cv = StratifiedKFold(n_splits=5, shuffle=True)
+            cv = StratifiedKFold(n_splits=k_fold, shuffle=True)
             """work with k-fold cross-validation"""
-            # print("\nNow doing k-fold cross-validation")
             cross_scores = cross_val_score(classifier, x, y, cv=cv, scoring="accuracy", n_jobs = -1)
             # cross_scores = cross_val_score(classifier, x, y, cv=cv, scoring="accuracy", error_score='raise')
             # display_scores(cross_scores)
             mean, std = end_scores(cross_scores)
             
-            store_all_means[pp_count, block_count, i] = mean
-            store_all_std[pp_count, block_count , i] = std
+            store_all_means[pp-1, block, i] = mean # ik gebruik gemiddeldes van elke participant, misschien median gebruken? 
+            store_all_std[pp-1, block , i] = std #gebruik ik niet 
             
             i += 1
-        block_count += 1
-    pp_count += 1
 #%%
+rep = 3
+correction = 'fdr' # should be holm or fdr or bonferroni
 
 formats = ['--o', '--o', '--o']
 colors = ['red', 'green', 'orange']
@@ -157,46 +157,20 @@ for block in blocks:
         statistic, p_value = wilcoxon(store_all_means[:, block, frame_subset] - 0.50, alternative = 'greater')
         """Problem: p-values do take nan into account I think!"""
         p_values[block, frame_subset] = p_value
-        if p_value <= 0.05: ax.plot(frame_subset, 1, '*', color = 'black')
+    if correction == 'fdr': signif_frames, corrected_pvals = multitest.fdrcorrection(p_values[block, :], alpha=0.05, method='indep', is_sorted=False)
+    elif correction == 'holm': signif_frames, corrected_pvals, b, c = multitest.multipletests(p_values[block, :], alpha = 0.05, method = 'holm')
+    elif correction == 'bonferroni': signif_frames, corrected_pvals, b, c = multitest.multipletests(p_values[block, :], alpha = 0.05, method = 'bonferroni')
+    if np.any(signif_frames == True): 
+        ax.plot(np.arange(0, 3, 1)[signif_frames], np.repeat(1, np.sum(signif_frames)), '*', color = 'black', markersize = 5)
 
-fig.suptitle('Classification scores averaged over all pp')
+fig.suptitle("Classification scores averaged over all pp \nCorrection method: {}"
+             .format(correction))
 handles, labels = axs[0].get_legend_handles_labels()
 fig.legend(handles, labels, loc="center right")
 fig.tight_layout()
-# fig.savefig('F_per_F_averageaccuracyoverallpp.png')
-print(p_values)
-# [0.85895492 0.01367188 0.00195312]
 
-"""Still something wrong: nan values, do not understand! - Think I fixed it""" 
-# ==> Idea: boxplots instead of mean & std plotting? 
-
-
-
-
-
-
-"""
-5-fold: p-values
-[[0.19335938 0.67786844 0.6953125 ]
- [0.43164062 0.02087926 0.01367188]
- [0.21312247 0.00195312 0.00195312]]
-
-10-fold: p-values
-[[0.13085938 0.4921875  0.375     ]
- [0.19335938 0.21352435 0.01953125]
- [0.76689822 0.00195312 0.00195312]]
-"""
-
-
-
-
-
-
-
-
-
-
-
+fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'AverageAU_{}_below85deleted{}_{}fold_rep{}.png'
+                         .format(correction, delete_below85, k_fold, rep)))
 
 
 
