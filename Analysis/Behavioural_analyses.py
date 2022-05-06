@@ -13,9 +13,9 @@ from matplotlib import pyplot as plt
 import pandas as pd
 from Functions import import_data, import_behaviouraldata, combine_behavioural_and_openface, select_columns, select_blocks
 
-openface_map = r"C:\Users\maudb\Documents\Psychologie\2e master psychologie\Master thesis\Pilot_Master_thesis\OpenFace output"
+openface_map = r"C:\Users\maudb\Documents\Psychologie\2e_master_psychologie\Master_thesis\Pilot_Master_thesis\OpenFace_output"
 #Combined output: contains both the behavioural output as well as the openface processed output!
-Combined_output = import_data(datafile_path=openface_map)
+Combined_output = import_data(pp_numbers = np.array([["1", "10"],["11", "20"], ["21", "34"]]), datafile_path=openface_map)
 Combined_columns = Combined_output.columns
 # SHAPE of combined_output: 3 blocks * 150trials per block * 60 frames per trial * 10 participants
 
@@ -32,18 +32,36 @@ blocks = np.arange(0, 3, 1)
 for block in blocks:
     Block_Trialdata = Trial_data.loc[Trial_data["block_count"] == block]
     Mean_accuracy = np.mean(Block_Trialdata['accuracy'] > 0)
-    print("Mean accuracy for block {} is {}".format(block, np.round(Mean_accuracy, 2)))
-    
+    print("Mean accuracy for block {} is {}".format(block+1, np.round(Mean_accuracy, 2)))
+
 
 """Accuracy for each participant separately"""
 #Check whether accuracy was high enough for each participant in each block
-participants = np.arange(1, 11, 1)
+participants = np.unique(Trial_data['pp_number']).astype(int)
 for block in blocks: 
     Block_Trialdata = Trial_data.loc[Trial_data["block_count"] == block]
     for pp in participants: 
         Block_pp_Trialdata = Block_Trialdata.loc[Block_Trialdata['pp_number'] == pp]
         mean_accuracy = np.mean(Block_pp_Trialdata['accuracy'] > 0)
-        if mean_accuracy < 0.85: print("Participant {} did not achieve high enough accuracy in block {}".format(pp, block))        
+        if mean_accuracy < 0.85: print("Participant {} did not achieve high enough accuracy in block {}".format(pp, block+1))
+        
+
+# Statistical differences in accuracy between blocks? 
+from statsmodels.stats.anova import AnovaRM
+# accuracy for each person in each block - Trial_data
+out = AnovaRM(data = Trial_data, depvar = 'accuracy', subject = 'pp_number', within = ['block_count'], aggregate_func = np.mean)
+print(out.fit())
+
+
+#%% Delete the incorrectly answered trials from the data
+# First block: don't change anything 
+Cleaned_data = Combined_output.loc[Combined_output["block_count"] == 0]
+for block in [1, 2]: 
+    Block_data = Combined_output.loc[Combined_output["block_count"] == block]
+    Cleaned_Block_data = Block_data.drop(Block_data[Block_data.accuracy <= 0].index)
+    print(np.all(Cleaned_Block_data.accuracy == 1))    
+    Cleaned_data = pd.concat([Cleaned_data, Cleaned_Block_data])
+
 
 #%% Check success of OpenFace processing at all frames 
 total_frames = Combined_output.shape[0]
