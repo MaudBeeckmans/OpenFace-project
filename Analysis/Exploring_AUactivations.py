@@ -15,6 +15,8 @@ from scipy import stats
 from statsmodels.stats import multitest
 from Functions import import_data, select_columns, select_blocks, delete_unsuccessful, delete_incorrect_last2blocks, delete_participant
 
+delete_below85 = True 
+
 openface_map = r"C:\Users\maudb\Documents\Psychologie\2e_master_psychologie\Master_thesis\Pilot_Master_thesis\OpenFace_output"
 all_data = import_data(pp_numbers = np.array([["1", "10"],["11", "20"], ["21", "34"]]), datafile_path = openface_map)
 accurate_data = delete_incorrect_last2blocks(data = all_data)
@@ -26,6 +28,11 @@ Successful_data["pp_number"] = np.where(Successful_data["pp_number"] == 317, 17,
 
 #Delete pp 34: she did not understand the task
 Successful_data2 = delete_participant(Successful_data, pp_to_delete = 34)
+
+if delete_below85 == True: 
+    # delete pp. 28, block 2 and pp. 30 block 2 (accuracy < 85%)
+    Successful_data2 = delete_pp_block(Successful_data2, 28, 1) # block number as stored (2nd block thus deleted)
+    Successful_data2 = delete_pp_block(Successful_data2, 30, 1)
 
 #%%
 # Should fill in blocks = 0, 1 and 2 once 
@@ -91,7 +98,7 @@ for col in test_cols:
     if np.any(significant_frames == True): 
         ymin, ymax = axes.get_ylim()
         axes.plot(frames[significant_frames], np.repeat(ymin + 0.05, frames[significant_frames].shape[0]), 'o', color = 'green', markersize = 5)
-    fig.savefig(os.path.join(output_dir, "{}_block{}".format(col, blocks[0]+1)))
+    # fig.savefig(os.path.join(output_dir, "{}_block{}".format(col, blocks[0]+1)))
     
             
             
