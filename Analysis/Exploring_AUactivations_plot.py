@@ -58,19 +58,32 @@ n_conditions = len(conditions)
 line_coordinates = [-1, 1]
 #%%
 relevant_frames = frames[15:]
-test_cols = ["AU06_r", "AU12_r"]
+pos_cols = ["AU06_r", "AU12_r"]
+neg_cols = ["AU01_r", "AU04_r", "AU12_r"]
+test_type = 'negative'
+if test_type == 'positive': test_cols = pos_cols
+else: test_cols = neg_cols
+
+fig, axes = plt.subplots(nrows = len(test_cols), ncols = blocks.shape[0], sharex = True)
+fig.suptitle('Activation positive minus negative')
+# Adding a plot in the figure which will encapsulate all the subplots with axis showing only
+fig.add_subplot(1, 1, 1, frame_on=False)
+
+# Hiding the axis ticks and tick labels of the bigger plot
+plt.tick_params(labelcolor="none", bottom=False, left=False)
+
+# Adding the x-axis and y-axis labels for the bigger plot
+plt.ylabel('Activation difference', loc = 'center')
+plt.xlabel('Frames', loc = 'right')
 
 
 
-for col in test_cols:
-    # Prepare the figure     
-    fig, axes = plt.subplots(nrows = 1, ncols = blocks.shape[0], sharex = True)
-    fig.suptitle('{} activation positive minus negative'.format(col))
-    axes[0].set_ylabel('difference', loc = 'top')
-    axes[0].set_xlabel('frame', loc = 'right')
+for col_count, col in zip(range(len(test_cols)), test_cols):
+    # axes[col_count, 0].set_ylabel('{}'.format(col[:4]), fontweight = 'bold', loc = 'center')
+    
     for block in blocks: 
         block_data = select_blocks(selected_data, np.array([block]))
-        axes[block].set_title('Block {}'.format(block))
+        axes[col_count, block].set_title('Block {}'.format(block))
         store_activations = np.empty([n_pp, n_frames, n_conditions])
         
         for cond_count in range(n_conditions):
@@ -88,16 +101,16 @@ for col in test_cols:
         significant_frames, corrected_P_values = multitest.fdrcorrection(P_values, alpha=0.05)
         
         #Plot the difference in AU activation for each participant over the frames
-        [axes[block].plot(frames, store_activations[pp-1, :, 0] - store_activations[pp-1, :, 1], alpha = 0.3) for pp in participants]
+        [axes[col_count, block].plot(frames, store_activations[pp-1, :, 0] - store_activations[pp-1, :, 1], alpha = 0.3) for pp in participants]
         #Plot the mean difference in AU activation over all participants
         group_activations = np.nanmean(store_activations[:, :, 0], axis = 0) - np.nanmean(store_activations[:, :, 1], axis = 0) 
-        axes[block].plot(frames, group_activations, label = "group average", color = 'green')
+        axes[col_count, block].plot(frames, group_activations, label = "group average", color = 'green')
         #Plot the significance of the frames
         if np.any(significant_frames == True): 
-            ymin, ymax = axes[block].get_ylim()
-            axes[block].plot(relevant_frames[significant_frames], np.repeat(ymin + 0.05, relevant_frames[significant_frames].shape[0]), 'o', color = 'green', markersize = 5)
+            ymin, ymax = axes[col_count, block].get_ylim()
+            axes[col_count, block].plot(relevant_frames[significant_frames], np.repeat(ymin + 0.05, relevant_frames[significant_frames].shape[0]), 'o', color = 'green', markersize = 5)
     fig.tight_layout()
-    fig.savefig(os.path.join(output_dir, "{}".format(col)))
+    fig.savefig(os.path.join(output_dir, "expected_{}".format(test_type)))
             
         
 
