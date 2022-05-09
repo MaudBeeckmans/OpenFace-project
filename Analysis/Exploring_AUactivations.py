@@ -14,7 +14,7 @@ import pandas as pd
 from scipy import stats
 from statsmodels.stats import multitest
 from Functions import import_data, select_columns, select_blocks, delete_unsuccessful, delete_incorrect_last2blocks, delete_participant
-
+from Functions import delete_pp_block
 delete_below85 = True 
 
 openface_map = r"C:\Users\maudb\Documents\Psychologie\2e_master_psychologie\Master_thesis\Pilot_Master_thesis\OpenFace_output"
@@ -36,7 +36,7 @@ if delete_below85 == True:
 
 #%%
 # Should fill in blocks = 0, 1 and 2 once 
-blocks = np.array([0]) # block(s) for which you want to plot. - blocks range is 0-2
+blocks = np.array([1]) # block(s) for which you want to plot. - blocks range is 0-2
 
 output_dir = os.path.join(os.getcwd(), 'AU_activationplots', 'Block{}'.format(blocks[0]+1))
 if not os.path.isdir(output_dir): os.makedirs(output_dir)
@@ -98,7 +98,7 @@ for col in test_cols:
     if np.any(significant_frames == True): 
         ymin, ymax = axes.get_ylim()
         axes.plot(frames[significant_frames], np.repeat(ymin + 0.05, frames[significant_frames].shape[0]), 'o', color = 'green', markersize = 5)
-    # fig.savefig(os.path.join(output_dir, "{}_block{}".format(col, blocks[0]+1)))
+    fig.savefig(os.path.join(output_dir, "{}_block{}".format(col, blocks[0]+1)))
     
             
             
