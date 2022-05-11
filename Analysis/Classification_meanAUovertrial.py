@@ -71,11 +71,10 @@ fixed_cols = ['pp_number', 'block_count', 'Frame_count', 'Trial_number', 'Affect
 store_all_means = np.empty([participants.shape[0], blocks.shape[0], len(included_frames)])
 store_all_std = np.empty([participants.shape[0], blocks.shape[0], len(included_frames)])
 
-
 for pp in participants: 
     print("we're at pp {}".format(pp))
     
-    pp_data = Successful_data.loc[Successful_data["pp_number"] == pp]
+    pp_data = Successful_data2.loc[Successful_data2["pp_number"] == pp]
     # print("PP data: {}".format(np.any(pp_data.isna())))
     test_data = pp_data[np.concatenate([fixed_cols, AU_col])]
     
@@ -89,51 +88,56 @@ for pp in participants:
     #mean AU activation over all frames, but have to do this per trial!!
     block_count = 0
     for block in blocks:
-        block_data = test_data[test_data["block_count"] == block]
-        # print("Block data: {}".format(np.any(block_data.isna())))
-        unique_values, indices = np.unique(block_data['Trial_number'], return_index = True)
-        shorter_data = block_data.iloc[indices, :].copy(deep=False)
-        # print("Shorter data: {}".format(np.any(shorter_data.isna())))
-        i = 0
-        for frames_of_interest in included_frames: 
-            
-            relevant_frames_data = block_data[block_data['Frame_count'].isin(frames_of_interest)]
-            # print("Frames data: {}".format(np.any(relevant_frames_data.isna())))
-            
-            """Probleem met de nan values zit bij de mean AU data"""
-            # meanAU_data = np.array([np.mean(relevant_frames_data[relevant_frames_data['Trial_number'] == trial][AU_col].to_numpy(), 0) for trial in unique_values])
-            meanAU_data = np.array([relevant_frames_data[relevant_frames_data['Trial_number'] == trial][AU_col].mean() for trial in unique_values])
-            meanAU_df = pd.DataFrame(meanAU_data, columns = AU_col)
-            # print("mean AU data: {}".format(np.any(meanAU_df.isna())))
-
-            
-            shorter_data.iloc[:, 6::] = meanAU_data[:, :]
-            # print(np.sum(np.sum(shorter_data.isna(), axis = 1) != 0))
-            
-            cleaned_data = shorter_data.dropna()
-            # print(np.any(cleaned_data.isna()))
-            """Do the classification"""
-            x, y = cleaned_data[AU_col], cleaned_data['Cond_binary']
-            #transform the y-data to integers, as this is often required by ML algorithms
-            y = y.astype(np.uint8)
-            
-            
-            """The actual classfication"""
-            classifier = svm.SVC(kernel = 'linear', C = 1)
-            # cv = StratifiedKFold(n_splits=5, random_state=75472, shuffle=True)
-            cv = StratifiedKFold(n_splits=k_fold, shuffle=True)
-            """work with k-fold cross-validation"""
-            cross_scores = cross_val_score(classifier, x, y, cv=cv, scoring="accuracy", n_jobs = -1)
-            # cross_scores = cross_val_score(classifier, x, y, cv=cv, scoring="accuracy", error_score='raise')
-            # display_scores(cross_scores)
-            mean, std = end_scores(cross_scores)
-            
-            store_all_means[pp-1, block, i] = mean # ik gebruik gemiddeldes van elke participant, misschien median gebruken? 
-            store_all_std[pp-1, block , i] = std #gebruik ik niet 
-            
-            i += 1
+        if (pp == 28 and block == 1) or (pp == 30 and block == 1): 
+            store_all_means[pp-1, block, :] = np.nan
+            store_all_std[pp-1, block, :] = np.nan
+        else: 
+            block_data = test_data[test_data["block_count"] == block]
+            # print("Block data: {}".format(np.any(block_data.isna())))
+            unique_values, indices = np.unique(block_data['Trial_number'], return_index = True)
+            shorter_data = block_data.iloc[indices, :].copy(deep=False)
+            # print("Shorter data: {}".format(np.any(shorter_data.isna())))
+            i = 0
+            for frames_of_interest in included_frames: 
+                
+                
+                relevant_frames_data = block_data[block_data['Frame_count'].isin(frames_of_interest)]
+                # print("Frames data: {}".format(np.any(relevant_frames_data.isna())))
+                
+                """Probleem met de nan values zit bij de mean AU data"""
+                # meanAU_data = np.array([np.mean(relevant_frames_data[relevant_frames_data['Trial_number'] == trial][AU_col].to_numpy(), 0) for trial in unique_values])
+                meanAU_data = np.array([relevant_frames_data[relevant_frames_data['Trial_number'] == trial][AU_col].mean() for trial in unique_values])
+                meanAU_df = pd.DataFrame(meanAU_data, columns = AU_col)
+                # print("mean AU data: {}".format(np.any(meanAU_df.isna())))
+    
+                
+                shorter_data.iloc[:, 6::] = meanAU_data[:, :]
+                # print(np.sum(np.sum(shorter_data.isna(), axis = 1) != 0))
+                
+                cleaned_data = shorter_data.dropna()
+                # print(np.any(cleaned_data.isna()))
+                """Do the classification"""
+                x, y = cleaned_data[AU_col], cleaned_data['Cond_binary']
+                #transform the y-data to integers, as this is often required by ML algorithms
+                y = y.astype(np.uint8)
+                
+                
+                """The actual classfication"""
+                classifier = svm.SVC(kernel = 'linear', C = 1)
+                # cv = StratifiedKFold(n_splits=5, random_state=75472, shuffle=True)
+                cv = StratifiedKFold(n_splits=k_fold, shuffle=True)
+                """work with k-fold cross-validation"""
+                cross_scores = cross_val_score(classifier, x, y, cv=cv, scoring="accuracy", n_jobs = -1)
+                # cross_scores = cross_val_score(classifier, x, y, cv=cv, scoring="accuracy", error_score='raise')
+                # display_scores(cross_scores)
+                mean, std = end_scores(cross_scores)
+                
+                store_all_means[pp-1, block, i] = mean # ik gebruik gemiddeldes van elke participant, misschien median gebruken? 
+                store_all_std[pp-1, block , i] = std #gebruik ik niet 
+                
+                i += 1
 #%%
-rep = 3
+rep = 0
 correction = 'fdr' # should be holm or fdr or bonferroni
 
 formats = ['--o', '--o', '--o']
@@ -153,8 +157,10 @@ for block in blocks:
         means = np.nanmean(store_all_means[:, block, frame_subset], axis = 0)
         stds = np.nanstd(store_all_means[:, block, frame_subset], axis = 0)
         ax.errorbar(frame_subset, means, yerr = stds, fmt = formats[block], color = colors[block], label = '')
-    
-        statistic, p_value = wilcoxon(store_all_means[:, block, frame_subset] - 0.50, alternative = 'greater')
+        
+        x = store_all_means[:, block, frame_subset] 
+        x = x[~np.isnan(x)]
+        statistic, p_value = wilcoxon(x - 0.50, alternative = 'greater')
         """Problem: p-values do take nan into account I think!"""
         p_values[block, frame_subset] = p_value
     if correction == 'fdr': signif_frames, corrected_pvals = multitest.fdrcorrection(p_values[block, :], alpha=0.05, method='indep', is_sorted=False)
