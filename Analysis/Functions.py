@@ -88,8 +88,8 @@ def delete_pp_block(data, pp, block):
 """Create some functions to use in the loop"""
 def display_scores(scores):
     print("Scores:", scores)
-    print("Mean:", np.nanmean(scores))
-    print("Standard deviation:", np.nanstd(scores))
+    print("Mean:", np.mean(scores))
+    print("Standard deviation:", np.std(scores))
         
 def end_scores(scores): 
     mean = np.mean(scores) # misschien mean, want nan values mogen eigenlijk niet he 
@@ -97,7 +97,16 @@ def end_scores(scores):
     return mean, std 
     
 
-
+def select_frames(analysis_type = 'FperF', data = None): 
+    if analysis_type == 'FperF': 
+        frame_selection = np.unique(data.Frame_count).astype(int)
+        frameselection_names = frame_selection
+        n_subsets = frameselection_names.shape[0]
+    elif analysis_type == 'meanAU': 
+        frame_selection = [np.arange(0, 15, 1), np.arange(15, 45, 1), np.arange(45, 60, 1)]
+        frameselection_names = ['F1-15', 'F16-45', 'F46-60']
+        n_subsets = len(frameselection_names)
+    return frame_selection, frameselection_names, n_subsets
 
 
 
