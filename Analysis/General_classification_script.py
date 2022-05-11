@@ -18,7 +18,7 @@ from sklearn.preprocessing import StandardScaler
 from scipy.stats import wilcoxon
 from statsmodels.stats import multitest
 from Functions import import_data, delete_unsuccessful, delete_incorrect_last2blocks, delete_participant
-from Functions import delete_pp_block, display_scores, end_scores, select_columns
+from Functions import delete_pp_block, display_scores, end_scores, select_columns, select_frames
 
 random.seed(25)
 scaler = StandardScaler()
@@ -56,20 +56,9 @@ Conditions_data = cleaned_data[['Affect']]
 Conditions_data_encoded = ordinal_encoder.fit_transform(Conditions_data)
 cleaned_data.insert(2, "Cond_binary", Conditions_data_encoded, True)
 
-#%%
-def select_frames(analysis_type = 'FperF', data = cleaned_data): 
-    if analysis_type == 'FperF': 
-        frame_selection = np.unique(data.Frame_count).astype(int)
-        frameselection_names = frame_selection
-        n_subsets = frameselection_names.shape[0]
-    elif analysis_type == 'meanAU': 
-        frame_selection = [np.arange(0, 15, 1), np.arange(15, 45, 1), np.arange(45, 60, 1)]
-        frameselection_names = ['F1-15', 'F16-45', 'F46-60']
-        n_subsets = len(frameselection_names)
-    return frame_selection, frameselection_names, n_subsets
 
 #start_data should be block_data
-def take_mean(start_data = None, analysis_type = 'FperF'): 
+def take_mean(start_data = None, analysis_type = 'FperF', included_subsets = None, included_subsetnames = None): 
     if analysis_type == 'FperF': final_data = start_data
     elif analysis_type == 'meanAU': 
         all_included_trials, indices = np.unique(start_data.Trial_number, return_index = True)
@@ -77,7 +66,7 @@ def take_mean(start_data = None, analysis_type = 'FperF'):
         final_data_template = start_data.iloc[indices, :].copy(deep=False) 
         final_data = final_data_template.append(final_data_template).append(final_data_template)
         final_data.index = np.arange(0, final_data.shape[0], 1)
-        for frames_subset, subset_name, subset_count in zip(frame_selection, frameselection_names, range(len(frameselection_names))): 
+        for frames_subset, subset_name, subset_count in zip(included_subsets, included_subsetnames, range(len(included_subsetnames))): 
             
             framessubset_data = start_data[start_data.Frame_count.astype(int).isin(frames_subset)]
             meanAU_framessubset = np.array([framessubset_data[framessubset_data.Trial_number == trial][AU_cols].mean() for trial in all_included_trials])
@@ -92,7 +81,7 @@ k_folds = 5
 n_reps = 1000
 
 # frame selection: array when FperF; list when meanAU    
-frame_selection, frameselection_names, n_subsets = select_frames(analysis_type = analysis)
+frame_selection, frameselection_names, n_subsets = select_frames(analysis_type = analysis, data = cleaned_data)
 participants = np.unique(cleaned_data.pp_number).astype(int)
 blocks = np.unique(cleaned_data.block_count).astype(int)
 
@@ -146,13 +135,14 @@ np.save(os.path.join(array_dir, "mean_accuracies_{}reps_{}.npy".format(n_reps, a
 #%%Plot the results 
 correction = 'fdr' # should be holm or fdr or bonferroni
 
-frames_corrected_for = np.arange(0, 60, 1)
+frames_corrected_for = np.arange(15, 45, 1)
 blocks = np.array([0, 1, 2])
 
 
 formats = ['--o', '--o', '--o']
 colors = ['red', 'green', 'orange']
 averaged_means = store_all_means
+
 
 if analysis == 'meanAU': 
     fig, axs = plt.subplots(1, n_subsets, sharex = True, sharey = True)
@@ -164,6 +154,7 @@ if analysis == 'meanAU':
         ax.axhline(y = 0.5, label = "Chance level", color = 'r')    
         labels = ['F 0-15', 'F 15-45', 'F 45-60']
         for isubset in range(n_subsets): 
+            if isubset == 0: pass
             means = np.nanmean(averaged_means[:, iblock, isubset], axis = 0)
             stds = np.nanstd(averaged_means[:, iblock, isubset], axis = 0)
             # ax.errorbar(isubset, means, yerr = stds, fmt = formats[iblock], color = colors[iblock], label = '')
@@ -183,7 +174,7 @@ if analysis == 'meanAU':
     handles, labels = axs[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="center right")
     fig.tight_layout()
-    fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'AverageAU_{}_below85deleted{}_{}fold_{}reps.png'
+    fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'Final', 'AverageAU_{}_below85deleted{}_{}fold_{}reps.png'
                              .format(correction, delete_below85, k_folds, n_reps)))
 
 elif analysis == 'FperF': 
@@ -219,7 +210,7 @@ elif analysis == 'FperF':
     axs.set_title("Correction method: {}, frames included: {}-{}".format(correction, 
                                                                          frames_corrected_for[0]+1, 
                                                                          frames_corrected_for[-1]+1))
-    fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'F_per_F_{}_frames{}to{}_below85deleted{}_{}folds_{}reps.png'.format(correction, 
+    fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'Final', 'F_per_F_{}_frames{}to{}_below85deleted{}_{}folds_{}reps.png'.format(correction, 
                                                                               frames_corrected_for[0]+1, 
                                                                               frames_corrected_for[-1]+1, delete_below85, 
                                                                               k_folds, n_reps)))
