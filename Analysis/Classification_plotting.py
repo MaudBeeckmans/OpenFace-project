@@ -34,7 +34,10 @@ if classification_cross_blocks == True:
     blocks = np.array([0, 1])
     k_folds = 0
     n_reps = 1
-else: averaged_means = np.load(os.path.join(results_path, "mean_accuracies_1000reps_{}.npy".format(analysis)))
+    position = 'lower right'
+else: 
+    averaged_means = np.load(os.path.join(results_path, "mean_accuracies_1000reps_{}.npy".format(analysis)))
+    position = 'center right'
 
 correction = 'fdr' # should be holm or fdr or bonferroni
 
@@ -57,7 +60,7 @@ title = 'Decoding accuracy for {} analysis \nCorrection method: Benjamini/Hochbe
 
 if analysis == 'meanAU': 
     fig, axs = plt.subplots(1, n_blocks, sharex = True, sharey = True)
-    axs[0].set_ylim(0.3, 1.10)
+    # axs[0].set_ylim(0.3, 1.10)
     p_values = np.empty((3, 2))
     statistics = np.empty((3, 2))
     for iblock in blocks: 
@@ -73,17 +76,22 @@ if analysis == 'meanAU':
             z = z[~np.isnan(z)]
             ax.boxplot(z, positions = [isubset], showmeans = True)
             statistic, p_value = wilcoxon(z - 0.50, alternative = 'greater')
+            # print(np.round(np.mean(z), 3))
+            print(np.round(p_value, 3))
+            
             p_values[iblock, isubset-1] = p_value
             statistics[iblock, isubset-1] = statistic
-            if correction == 'fdr': signif_frames, corrected_pvals = multitest.fdrcorrection(p_values[iblock, :], alpha=0.05, method='indep', is_sorted=False)
-            elif correction == 'holm': signif_frames, corrected_pvals, b, c = multitest.multipletests(p_values[iblock, :], alpha = 0.05, method = 'holm')
-            elif correction == 'bonferroni': signif_frames, corrected_pvals, b, c = multitest.multipletests(p_values[iblock, :], alpha = 0.05, method = 'bonferroni')
-            if np.any(signif_frames == True): 
-                ax.plot(np.arange(1, 3, 1)[signif_frames], np.repeat(1.05, np.sum(signif_frames)), '*', color = 'black', markersize = 5)
+        if correction == 'fdr': signif_frames, corrected_pvals = multitest.fdrcorrection(p_values[iblock, :], alpha=0.05, method='indep', is_sorted=False)
+        elif correction == 'holm': signif_frames, corrected_pvals, b, c = multitest.multipletests(p_values[iblock, :], alpha = 0.05, method = 'holm')
+        elif correction == 'bonferroni': signif_frames, corrected_pvals, b, c = multitest.multipletests(p_values[iblock, :], alpha = 0.05, method = 'bonferroni')
+        print(np.round(corrected_pvals, 3))
+        print('\n')
+        if np.any(signif_frames == True): 
+            ax.plot(np.arange(1, 3, 1)[signif_frames], np.repeat(0.40, np.sum(signif_frames)), '*', color = 'black', markersize = 5)
     fig.suptitle(title, fontsize = 13)
     handles, labels = axs[0].get_legend_handles_labels()
     axs[0].set_ylabel('decoding accuracy', fontsize = 12)
-    fig.legend(handles, labels, loc="center right", fontsize = 15)
+    fig.legend(handles, labels, loc=position, fontsize = 10)
     fig.tight_layout()
     fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'Final', 'AverageAU_{}_below85deleted{}_{}fold_{}reps.png'
                              .format(correction, delete_below85, k_folds, n_reps)))
@@ -91,7 +99,7 @@ if analysis == 'meanAU':
 elif analysis == 'FperF': 
     fig, axs = plt.subplots(1, 1)
     axs.set_ylim(0.35, 1.05)
-    if blocks.shape[0] != 3:  axs.set_ylim(0.35, 0.6)
+    if blocks.shape[0] != 3:  axs.set_ylim(0.40, 0.6)
     significant_frames = np.array([])
     p_values = np.empty((blocks.shape[0], n_subsets))
     statistics = np.empty((blocks.shape[0], n_subsets))
@@ -119,7 +127,8 @@ elif analysis == 'FperF':
     handles = np.delete(handles, [1, 2])
     labels = np.delete(labels, [1, 2])
     axs.set_ylabel('decoding accuracy', fontsize = 12)
-    fig.legend(handles, labels, loc="center right", fontsize = 12)
+    axs.set_xlabel('frame', fontsize = 12)
+    fig.legend(handles, labels, loc=position, fontsize = 12)
     fig.suptitle(title, fontsize = 13)
     fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'Final', 'F_per_F_{}_frames{}to{}_below85deleted{}_{}folds_{}reps.png'.format(correction, 
                                                                               frames_corrected_for[0]+1, 
