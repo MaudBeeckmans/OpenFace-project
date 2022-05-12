@@ -4,7 +4,7 @@ library(tidyverse)
 RDS_path = file.path("C:", "Users", "maudb", "Documents", "Psychologie", "2e_master_psychologie", 
                      "Master_thesis", "OpenFace_processing")
 
-all_files <- list.files(path = folder, pattern = ".rds")
+all_files <- list.files(path = RDS_path, pattern = ".rds")
 i <- 0
 for (file in all_files){
   if (i == 0){ all_data <- readRDS(file.path(RDS_path, file))}
