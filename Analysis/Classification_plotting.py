@@ -25,6 +25,7 @@ from Functions import delete_pp_block, display_scores, end_scores, select_column
 #%%Plot the results
 delete_below85 = True 
 analysis = 'FperF'
+
 classification_cross_blocks = True
 k_folds = 5
 n_reps = 1000
@@ -34,19 +35,22 @@ if classification_cross_blocks == True:
     blocks = np.array([0, 1])
     k_folds = 0
     n_reps = 1
-    position = 'lower right'
+    position = 'center right'
 else: 
     averaged_means = np.load(os.path.join(results_path, "mean_accuracies_1000reps_{}.npy".format(analysis)))
-    position = 'upper right'
+    position = 'center right'
 
 correction = 'fdr' # should be holm or fdr or bonferroni
 
 frames_corrected_for = np.arange(15, 60, 1)
 
-if analysis == 'meanAU': frame_selection, frameselection_names, n_subsets = select_frames(data = averaged_means, analysis_type = analysis)
+if analysis == 'meanAU': 
+    frame_selection, frameselection_names, n_subsets = select_frames(data = averaged_means, analysis_type = analysis)
+    analysis_text = 'temporal averaging'
 else: 
     frame_selection = np.arange(0, 60, 1)
     n_subsets = frame_selection.shape[0]
+    analysis_text = 'frame-by-frame'
 
 participants = np.arange(0, averaged_means.shape[0], 1)
 blocks = np.arange(0, averaged_means.shape[1], 1)
@@ -56,7 +60,7 @@ n_blocks = blocks.shape[0]
 formats = ['--o', '--o', '--o']
 colors = ['red', 'green', 'orange']
 
-title = 'Decoding accuracy for {} analysis \nCorrection method: Benjamini/Hochberg'.format(analysis)
+title = 'Classification accuracy for {} analysis'.format(analysis_text)
 
 if analysis == 'meanAU': 
     fig, axs = plt.subplots(1, n_blocks, sharex = True, sharey = True)
@@ -94,12 +98,12 @@ if analysis == 'meanAU':
     axs[0].set_ylabel('decoding accuracy', fontsize = 12)
     fig.legend(handles, labels, loc=position, fontsize = 10)
     fig.tight_layout()
-    # fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'Final', 'AverageAU_{}_below85deleted{}_{}fold_{}reps.png'
-    #                          .format(correction, delete_below85, k_folds, n_reps)))
+    fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'Final', 'AverageAU_{}_below85deleted{}_{}fold_{}reps.png'
+                              .format(correction, delete_below85, k_folds, n_reps)))
 
 elif analysis == 'FperF': 
     fig, axs = plt.subplots(n_blocks, 1, sharex = True, sharey = False)
-    axs[0].set_xlim(frames_corrected_for[0]-1, frames_corrected_for[-1]+1)
+    # axs[0].set_xlim(frames_corrected_for[0]-1, frames_corrected_for[-1]+1)
     y_values = [(0.40, 0.65), (0.40, 0.65), (0.35, 1.05)]
     [axs[iblock].set_ylim(y_value) for iblock, y_value in zip(range(n_blocks), y_values[:n_blocks])]
     significant_frames = np.array([])
@@ -110,11 +114,11 @@ elif analysis == 'FperF':
     for iblock, block in zip(blocks, blocks+1): 
         means = np.nanmean(averaged_means[:, iblock, :], axis = 0)
         stds = np.nanstd(averaged_means[:, iblock, :], axis = 0)
-        # plt.errorbar(frame_selection, means, yerr = stds, fmt = formats[iblock], color = colors[iblock], label = 'block {}'.format(block))
+        axs[iblock].errorbar(frame_selection, means, yerr = stds, fmt = formats[iblock], color = colors[iblock], label = 'block {}'.format(block))
         for frame in frame_selection: 
             z = averaged_means[:, iblock, frame] 
             z = z[~np.isnan(z)]
-            if frame > 14: axs[iblock].boxplot(z, positions = [frame], showmeans = False, showfliers=False)
+            # if frame > 14: axs[iblock].boxplot(z, positions = [frame], showmeans = False, showfliers=False)
             statistic, p_value = wilcoxon(z - 0.50, alternative = 'greater')
             statistics[iblock, frame] = statistic
             p_values[iblock, frame] = p_value
@@ -140,10 +144,11 @@ elif analysis == 'FperF':
     # fig.tight_layout()
     
     fig.suptitle(title, fontsize = 15)
-    # fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'Final', 'F_per_F_{}_frames{}to{}_below85deleted{}_{}folds_{}reps.png'.format(correction, 
-    #                                                                           frames_corrected_for[0]+1, 
-    #                                                                           frames_corrected_for[-1]+1, delete_below85, 
-    #                                                                           k_folds, n_reps)))
+    fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'Final', 'F_per_F_{}_frames{}to{}_below85deleted{}_{}folds_{}reps.png'.format(correction, 
+                                                                              frames_corrected_for[0]+1, 
+                                                                              frames_corrected_for[-1]+1, delete_below85, 
+                                                                              k_folds, n_reps)))
+
 
 
 
