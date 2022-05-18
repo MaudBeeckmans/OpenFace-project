@@ -4,7 +4,7 @@ Created on Tue May 10 11:26:43 2022
 
 @author: maudb
 """
-#%%Import all relevant modules 
+#Import all relevant modules 
 import pyreadr, os, random
 from sklearn.model_selection import StratifiedShuffleSplit
 import numpy as np
@@ -18,9 +18,8 @@ from sklearn.preprocessing import StandardScaler
 from scipy.stats import wilcoxon
 from statsmodels.stats import multitest
 from Functions import import_data, delete_unsuccessful, delete_incorrect_last2blocks, delete_participant
-from Functions import delete_pp_block, display_scores, end_scores, select_columns, select_frames
+from Functions import delete_pp_block, display_scores, end_scores, select_columns, select_frames, balance_train_data
 
-random.seed(25)
 scaler = StandardScaler()
 ordinal_encoder = OrdinalEncoder()
 
@@ -56,7 +55,7 @@ Conditions_data = cleaned_data[['Affect']]
 Conditions_data_encoded = ordinal_encoder.fit_transform(Conditions_data)
 cleaned_data.insert(2, "Cond_binary", Conditions_data_encoded, True)
 
-
+#%%
 #start_data should be block_data
 def take_mean(start_data = None, analysis_type = 'FperF', included_subsets = None, included_subsetnames = None): 
     if analysis_type == 'FperF': final_data = start_data
@@ -78,7 +77,7 @@ def take_mean(start_data = None, analysis_type = 'FperF', included_subsets = Non
 #%%
 analysis = 'FperF' # analysis_type should be 'FperF' or 'meanAU'
 k_folds = 5
-n_reps = 1000
+n_reps = 100
 
 # frame selection: array when FperF; list when meanAU    
 frame_selection, frameselection_names, n_subsets = select_frames(analysis_type = analysis, data = cleaned_data)
@@ -102,7 +101,9 @@ for ipp, pp in zip(participants-1, participants):
             store_all_std[ipp, iblock, :] = np.nan
         else: 
             block_data = pp_data[pp_data.block_count == iblock]
-            final_data = take_mean(start_data = block_data, analysis_type = analysis)
+            final_data = take_mean(start_data = block_data, analysis_type = analysis, 
+                                   included_subsets = frame_selection, 
+                                   included_subsetnames = frameselection_names)
             
             all_mean = []
             all_std = []
@@ -110,7 +111,11 @@ for ipp, pp in zip(participants-1, participants):
                 subset_data = final_data.loc[final_data.Frame_count == selected_frames]
                 subset_data = subset_data.reset_index()
                 
-                x, y = subset_data[AU_cols], subset_data['Cond_binary']
+                balanced_data = balance_train_data(unbalanced_train_data = subset_data)
+                # print(np.unique(balanced_data.Cond_binary, return_counts = True))
+                x, y = balanced_data[AU_cols], balanced_data['Cond_binary']
+                # x, y = subset_data[AU_cols], subset_data['Cond_binary']
+                # print(np.unique(y, return_counts = True))
                 #transform the y-data to integers, as this is often required by ML algorithms
                 y = y.astype(np.uint8)
                 
