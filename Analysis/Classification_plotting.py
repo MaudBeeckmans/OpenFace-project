@@ -21,23 +21,25 @@ from statsmodels.stats import multitest
 from Functions import import_data, delete_unsuccessful, delete_incorrect_last2blocks, delete_participant
 from Functions import delete_pp_block, display_scores, end_scores, select_columns, select_frames
 
-
 #%%Plot the results
 delete_below85 = True 
 analysis = 'FperF'
 
-classification_cross_blocks = True
+single_row = False
+
+classification_cross_blocks = False
+run_number = 10
 k_folds = 5
-n_reps = 1000
+n_reps = 100
 results_path = os.path.join(os.getcwd(), 'Stored_results')
 if classification_cross_blocks == True: 
-    averaged_means = np.load(os.path.join(results_path, "mean_accuracies_{}_crossblocks.npy".format(analysis)))
+    averaged_means = np.load(os.path.join(results_path, "mean_accuracies_{}_crossblocks_run{}.npy".format(analysis, run_number)))
     blocks = np.array([0, 1])
     k_folds = 0
     n_reps = 1
-    position = 'center right'
+    position = 'lower center'
 else: 
-    averaged_means = np.load(os.path.join(results_path, "mean_accuracies_1000reps_{}.npy".format(analysis)))
+    averaged_means = np.load(os.path.join(results_path, "mean_accuracies_{}reps_{}.npy".format(n_reps, analysis)))
     position = 'center right'
 
 correction = 'fdr' # should be holm or fdr or bonferroni
@@ -98,11 +100,14 @@ if analysis == 'meanAU':
     axs[0].set_ylabel('decoding accuracy', fontsize = 12)
     fig.legend(handles, labels, loc=position, fontsize = 10)
     fig.tight_layout()
-    fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'Final', 'AverageAU_{}_below85deleted{}_{}fold_{}reps.png'
-                              .format(correction, delete_below85, k_folds, n_reps)))
+    fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'Final', 'AverageAU_{}_below85deleted{}_{}fold_{}reps_run{}.png'
+                              .format(correction, delete_below85, k_folds, n_reps, run_number)))
 
 elif analysis == 'FperF': 
-    fig, axs = plt.subplots(n_blocks, 1, sharex = True, sharey = False)
+    
+    if single_row == True: fig, axs = plt.subplots(1, n_blocks, sharex = True, sharey = False)
+    else: fig, axs = plt.subplots(n_blocks, 1, sharex = True, sharey = False)
+    
     # axs[0].set_xlim(frames_corrected_for[0]-1, frames_corrected_for[-1]+1)
     y_values = [(0.40, 0.65), (0.40, 0.65), (0.35, 1.05)]
     [axs[iblock].set_ylim(y_value) for iblock, y_value in zip(range(n_blocks), y_values[:n_blocks])]
@@ -114,7 +119,7 @@ elif analysis == 'FperF':
     for iblock, block in zip(blocks, blocks+1): 
         means = np.nanmean(averaged_means[:, iblock, :], axis = 0)
         stds = np.nanstd(averaged_means[:, iblock, :], axis = 0)
-        axs[iblock].errorbar(frame_selection, means, yerr = stds, fmt = formats[iblock], color = colors[iblock], label = 'block {}'.format(block))
+        axs[iblock].errorbar(frame_selection, means, yerr = stds, fmt = formats[iblock], color = colors[iblock])
         for frame in frame_selection: 
             z = averaged_means[:, iblock, frame] 
             z = z[~np.isnan(z)]
@@ -125,29 +130,28 @@ elif analysis == 'FperF':
 
         if correction == 'fdr': signif_frames, corrected_pvals = multitest.fdrcorrection(p_values[iblock, frames_corrected_for], alpha=0.05, method='indep', is_sorted=False)
         elif correction == 'holm': signif_frames, corrected_pvals, b, c = multitest.multipletests(p_values[iblock, frames_corrected_for], alpha = 0.05, method = 'holm')
-        print(np.round(corrected_pvals, 3))
+        print("\n {}".format(np.round(corrected_pvals, 3)))
         print(signif_frames)
         if np.any(signif_frames == True): axs[iblock].plot(frames_corrected_for[signif_frames], np.repeat(0.42, frames_corrected_for[signif_frames].shape[0]), '*', color = colors[iblock], markersize = 7)
-
-        axs[iblock].set_ylabel('block{}'.format(block), fontsize = 15)    
+        
+        if single_row == True: axs[iblock].set_title('block{}'.format(block), fontsize = 15)    
+        else: axs[iblock].set_ylabel('block{}'.format(block), fontsize = 15)    
            
-    [axs[iblock].plot(frame_selection, np.repeat(0.5, n_subsets), lw = 0.5, color = 'blue', label = 'Chance level') for iblock in range(n_blocks)]
-    [axs[iblock].plot([14,14],[0,5], lw = 1, linestyle ="dashed", color ='grey', label ='appeared')for iblock in range(n_blocks)]
-    [axs[iblock].plot([45,45],[0,5], lw = 1, linestyle ="dashed", color ='grey', label ='disappeared')for iblock in range(n_blocks)]
+    [axs[iblock].plot(frame_selection, np.repeat(0.5, n_subsets), lw = 1, color = 'blue', label = 'Chance level') for iblock in range(n_blocks)]
+    [axs[iblock].plot([14,14],[0,5], lw = 1, linestyle ="dashed", color ='grey', label ='stimulus onset')for iblock in range(n_blocks)]
+    [axs[iblock].plot([45,45],[0,5], lw = 1, linestyle ="dashed", color ='grey', label ='stimulus offset')for iblock in range(n_blocks)]
     handles, labels = axs[1].get_legend_handles_labels()
-    handles = np.delete(handles, [1, 2])
-    labels = np.delete(labels, [1, 2])
     
     axs[-1].set_xlabel('frame', fontsize = 15)
-    # fig.legend(handles, labels, loc=position, fontsize = 15)
+    fig.legend(handles, labels, loc=position, fontsize = 15)
     fig.set_size_inches(16, 7)
     # fig.tight_layout()
     
     fig.suptitle(title, fontsize = 15)
-    fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'Final', 'F_per_F_{}_frames{}to{}_below85deleted{}_{}folds_{}reps.png'.format(correction, 
+    fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'Final', 'F_per_F_{}_frames{}to{}_below85deleted{}_{}folds_{}reps_singlerow{}_run{}.png'.format(correction, 
                                                                               frames_corrected_for[0]+1, 
                                                                               frames_corrected_for[-1]+1, delete_below85, 
-                                                                              k_folds, n_reps)))
+                                                                              k_folds, n_reps, single_row, run_number)))
 
 
 
