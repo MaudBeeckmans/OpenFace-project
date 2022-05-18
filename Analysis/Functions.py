@@ -108,9 +108,17 @@ def select_frames(analysis_type = 'FperF', data = None):
         n_subsets = len(frameselection_names)
     return frame_selection, frameselection_names, n_subsets
 
-
-
-
+#%%
+def balance_train_data(unbalanced_train_data = None): 
+    unique_values, n_values = np.unique(unbalanced_train_data.Cond_binary, return_counts = True)
+    n_to_delete = n_values[1] - n_values[0]
+    zeroorone = np.asarray(np.where(n_values == np.max(n_values)))[0, 0]
+    all_largest = np.asarray(np.where(unbalanced_train_data.Cond_binary == zeroorone)).squeeze()
+    indices_to_delete = np.random.choice(all_largest, np.abs(n_to_delete))
+    indices = unbalanced_train_data.index
+    new_indices = np.delete(indices, indices_to_delete)
+    balanced_train_data = unbalanced_train_data.loc[new_indices, :]
+    return balanced_train_data
 
 
 
