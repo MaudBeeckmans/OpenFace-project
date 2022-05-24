@@ -15,14 +15,14 @@ from sklearn.model_selection import cross_val_score, StratifiedShuffleSplit
 from sklearn.model_selection import StratifiedKFold, RepeatedStratifiedKFold
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, balanced_accuracy_score
 from scipy.stats import wilcoxon
 from statsmodels.stats import multitest
 from Functions import import_data, delete_unsuccessful, delete_incorrect_last2blocks, delete_participant
 from Functions import delete_pp_block, display_scores, end_scores, select_columns, select_frames, balance_train_data
 scaler = StandardScaler()
 ordinal_encoder = OrdinalEncoder()
-run_number = 10
+run_number = 100
 
 #%%Load all the data & delete unsuccesful & inaccurate trials 
 delete_below85 = True
@@ -57,6 +57,8 @@ Conditions_data_encoded = ordinal_encoder.fit_transform(Conditions_data)
 cleaned_data.insert(2, "Cond_binary", Conditions_data_encoded, True)
 #%% Analysis for FperF
 
+metric = 'balanced_accuracy'
+
 frame_selection, frameselection_names, n_subsets = select_frames(analysis_type = 'FperF', data = cleaned_data)
 participants = np.unique(cleaned_data.pp_number).astype(int)
 blocks = np.unique(cleaned_data.block_count).astype(int)
@@ -73,9 +75,11 @@ for ipp, pp in zip(participants-1, participants):
         subset_data = pp_data.loc[np.isin(pp_data.Frame_count, subset_frame)]
         
         train_data = subset_data[subset_data.block_count == 2]
-        balanced_train_data = balance_train_data(unbalanced_train_data = train_data)
-        print(np.unique(balanced_train_data.Cond_binary, return_counts = True))
-        train_x, train_y = balanced_train_data[AU_cols], balanced_train_data['Cond_binary']
+        # balanced_train_data = balance_train_data(unbalanced_train_data = train_data)
+        # print(np.unique(balanced_train_data.Cond_binary, return_counts = True))
+        # train_x, train_y = balanced_train_data[AU_cols], balanced_train_data['Cond_binary']
+        
+        train_x, train_y = train_data[AU_cols], train_data['Cond_binary']
         classifier = svm.SVC(kernel = 'linear', C = 1)
         classifier.fit(train_x, train_y)
           
@@ -85,16 +89,20 @@ for ipp, pp in zip(participants-1, participants):
             else: 
                 test_data = subset_data[subset_data.block_count == iblock]
                 test_x, test_y = test_data[AU_cols], test_data['Cond_binary']
-                accuracy = classifier.score(test_x, test_y)
+                # accuracy = classifier.score(test_x, test_y)
+                y_hat = classifier.predict(test_x)
+                balanced_accuracy = balanced_accuracy_score(test_y, y_hat)
                 
-                store_all_means[ipp, iblock, isubset] = accuracy
+                store_all_means[ipp, iblock, isubset] = balanced_accuracy
 
 #Store the results in a file!
 array_dir = os.path.join(os.getcwd(), 'Stored_results')
 if not os.path.isdir(array_dir): os.makedirs(array_dir)
-np.save(os.path.join(array_dir, "mean_accuracies_{}_crossblocks_run{}.npy".format('FperF', run_number)), store_all_means)
+np.save(os.path.join(array_dir, "mean_accuracies_{}_crossblocks_run{}_{}.npy".format('FperF', run_number, metric)), store_all_means)
 
 #%%Analysis for meanAU
+metric = 'balanced_accuracy'
+
 frame_selection, frameselection_names, n_subsets = select_frames(analysis_type = 'meanAU', data = cleaned_data)
 participants = np.unique(cleaned_data.pp_number).astype(int)
 blocks = np.unique(cleaned_data.block_count).astype(int)
@@ -125,11 +133,12 @@ for ipp, pp in zip(participants-1, participants):
         
             #take mean within trial for the train data 
             train_data_averaged = takemean_1pp1block1subsetdata(start_data = train_data)
+
             
             # ensure train data has as many positive as negative trials
-            balanced_train_data = balance_train_data(unbalanced_train_data = train_data_averaged)
-            print(np.unique(balanced_train_data.Cond_binary, return_counts = True))
-            train_x, train_y = balanced_train_data[AU_cols], balanced_train_data['Cond_binary']
+            # balanced_train_data = balance_train_data(unbalanced_train_data = train_data_averaged)
+            # print(np.unique(balanced_train_data.Cond_binary, return_counts = True))
+            # train_x, train_y = balanced_train_data[AU_cols], balanced_train_data['Cond_binary']
             classifier = svm.SVC(kernel = 'linear', C = 1)
             classifier.fit(train_x, train_y)
         
@@ -143,16 +152,18 @@ for ipp, pp in zip(participants-1, participants):
                 # accuracy = classifier.score(test_x, test_y)
                 test_y_hat = classifier.predict(test_x)
                 check_values, counts = np.unique(test_y_hat, return_counts = True)
+                balanced_accuracy = balanced_accuracy_score(test_y, test_y_hat)
                 if check_values.shape[0] == 1: 
-                    print("single pred for pp {}".format(pp))
-                accuracy = accuracy_score(test_y, test_y_hat)
+                    print("single pred for pp {}, block {}".format(pp, block))
+                    print("accuracy: {}".format(balanced_accuracy))
+                
 
-                store_all_means[ipp, iblock, isubset] = accuracy
+                store_all_means[ipp, iblock, isubset] = balanced_accuracy
 
 #Store the results in a file!
 array_dir = os.path.join(os.getcwd(), 'Stored_results')
 if not os.path.isdir(array_dir): os.makedirs(array_dir)
-np.save(os.path.join(array_dir, "mean_accuracies_{}_crossblocks_run{}.npy".format('meanAU', run_number)), store_all_means)
+np.save(os.path.join(array_dir, "mean_accuracies_{}_crossblocks_run{}_{}.npy".format('meanAU', run_number, metric)), store_all_means)
 
 
     
