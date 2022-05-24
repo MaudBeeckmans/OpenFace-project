@@ -12,19 +12,25 @@ from statsmodels.stats import multitest
 from researchpy import ttest
 
 #%%Statistical_output
-analysis = 'FperF'
-classification_cross_blocks = True
-delete_below85 = True 
+analysis = 'meanAU'
+classification_cross_blocks = False
+delete_below85 = True
 results_path = os.path.join(os.getcwd(), 'Stored_results')
+metric = '_balanced_accuracy'
+run_number = 10
 if classification_cross_blocks == True: 
     k_folds = 0
     n_reps = 1
-    averaged_means = np.load(os.path.join(results_path, "mean_accuracies_{}_crossblocks.npy".format(analysis)))
-    
+    averaged_means = np.load(os.path.join(results_path, 
+                                          "mean_accuracies_{}_crossblocks_run{}{}.npy".format(analysis, 
+                                                                                              run_number, 
+                                                                                              metric)))
 else: 
     k_folds = 5
-    n_reps = 1000
-    averaged_means = np.load(os.path.join(results_path, "mean_accuracies_1000reps_{}.npy".format(analysis)))
+    n_reps = 100
+    averaged_means = np.load(os.path.join(results_path, 
+                                          "mean_accuracies_{}reps_{}{}.npy".format(n_reps, analysis, 
+                                                                                   metric)))
 
 
 blocks = np.arange(0, averaged_means.shape[1], 1)
@@ -48,12 +54,13 @@ if analysis == 'meanAU':
             medians[iblock, isubset] = np.median(z)
         signif_frames, corrected_pvals = multitest.fdrcorrection(p_values[iblock, :], alpha=0.05, method='indep', is_sorted=False)
         corrected_pvalues[iblock, :] = corrected_pvals
-        Z_scores = -norm.ppf(p_values)
+        
         print("\n\nResults block {}".format(iblock+1))
         print("Median values: \n{}".format(np.round(medians[iblock, :], 3)))
         print("Corrected p-values: \n{}".format(np.round(corrected_pvalues[iblock, :], 3)))
         print("ranks (W): \n{}".format(np.round(ranks[iblock, :], 3)))
-        print("Z_scores: {}".format(Z_scores))
+    Z_scores = -norm.ppf(p_values)
+    print("Z_scores: {}".format(Z_scores))
 elif analysis == 'FperF': 
     frames_corrected_for = np.arange(15, 60, 1)
     p_values = np.empty((n_blocks, n_subsets))
