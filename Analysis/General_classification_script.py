@@ -77,7 +77,8 @@ def take_mean(start_data = None, analysis_type = 'FperF', included_subsets = Non
 #%%
 analysis = 'FperF' # analysis_type should be 'FperF' or 'meanAU'
 k_folds = 5
-n_reps = 100
+n_reps = 1000
+metric = "balanced_accuracy"
 
 # frame selection: array when FperF; list when meanAU    
 frame_selection, frameselection_names, n_subsets = select_frames(analysis_type = analysis, data = cleaned_data)
@@ -87,7 +88,7 @@ blocks = np.unique(cleaned_data.block_count).astype(int)
 #Create empty arrays to store all the obtained mean accuracies for each pp. in each block at each frame_selection and within each repetition
 store_all_means = np.empty([participants.shape[0], blocks.shape[0], n_subsets])
 store_all_std = np.empty([participants.shape[0], blocks.shape[0], n_subsets])
-
+store_difference = np.empty([participants.shape[0], blocks.shape[0], n_subsets])
 
 for ipp, pp in zip(participants-1, participants): 
     print("we're at pp {}".format(pp))
@@ -107,15 +108,22 @@ for ipp, pp in zip(participants-1, participants):
             
             all_mean = []
             all_std = []
+            isubset = 0
             for selected_frames in frameselection_names: 
                 subset_data = final_data.loc[final_data.Frame_count == selected_frames]
                 subset_data = subset_data.reset_index()
                 
-                balanced_data = balance_train_data(unbalanced_train_data = subset_data)
-                # print(np.unique(balanced_data.Cond_binary, return_counts = True))
-                x, y = balanced_data[AU_cols], balanced_data['Cond_binary']
-                # x, y = subset_data[AU_cols], subset_data['Cond_binary']
-                # print(np.unique(y, return_counts = True))
+                "Option with balanced data"
+                # balanced_data = balance_train_data(unbalanced_train_data = subset_data)
+                # unique_values, n_counts = np.unique(balanced_data.Cond_binary, return_counts = True)
+                # x, y = balanced_data[AU_cols], balanced_data['Cond_binary']
+                
+                "Option with unbalanced data"
+                x, y = subset_data[AU_cols], subset_data['Cond_binary']
+                unique_values, n_counts = np.unique(y, return_counts = True)
+                
+                difference = n_counts[0] - n_counts[1]
+                store_difference[ipp, iblock, isubset] = difference
                 #transform the y-data to integers, as this is often required by ML algorithms
                 y = y.astype(np.uint8)
                 
@@ -123,119 +131,32 @@ for ipp, pp in zip(participants-1, participants):
                 classifier = svm.SVC(kernel = 'linear', C = 1)
                 # cv = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state = seed)
                 cv = RepeatedStratifiedKFold(n_splits = k_folds, n_repeats = n_reps)
-                cross_scores = cross_val_score(classifier, x, y, cv=cv, scoring="accuracy", n_jobs = -1)
+                cross_scores = cross_val_score(classifier, x, y, cv=cv, scoring=metric, n_jobs = -1)
                 # cross_scores = cross_val_score(classifier, x, y, cv=cv, scoring="roc_auc", n_jobs = -1)
                 mean, std = end_scores(cross_scores)
                 if np.any(cross_scores == np.nan): print("nan value observed")
                 all_mean.append(mean)
                 all_std.append(std)
+                
+                isubset += 1
             store_all_means[ipp, iblock, :] = all_mean
             store_all_std[ipp, iblock, :] = all_std
 
 #Store the results in a file!
 array_dir = os.path.join(os.getcwd(), 'Stored_results')
 if not os.path.isdir(array_dir): os.makedirs(array_dir)
-np.save(os.path.join(array_dir, "mean_accuracies_{}reps_{}.npy".format(n_reps, analysis)), store_all_means)
-
-#%%Plot the results 
-correction = 'fdr' # should be holm or fdr or bonferroni
-
-frames_corrected_for = np.arange(15, 45, 1)
-blocks = np.array([0, 1, 2])
-
-
-formats = ['--o', '--o', '--o']
-colors = ['red', 'green', 'orange']
-averaged_means = store_all_means
-
-
-if analysis == 'meanAU': 
-    fig, axs = plt.subplots(1, n_subsets, sharex = True, sharey = True)
-    axs[0].set_ylim(0.3, 1.10)
-    p_values = np.empty((3, n_subsets))
-    for iblock in blocks: 
-        ax = axs[iblock]
-        ax.set_title("Block  {}".format(iblock+1))
-        ax.axhline(y = 0.5, label = "Chance level", color = 'r')    
-        labels = ['F 0-15', 'F 15-45', 'F 45-60']
-        for isubset in range(n_subsets): 
-            if isubset == 0: pass
-            means = np.nanmean(averaged_means[:, iblock, isubset], axis = 0)
-            stds = np.nanstd(averaged_means[:, iblock, isubset], axis = 0)
-            # ax.errorbar(isubset, means, yerr = stds, fmt = formats[iblock], color = colors[iblock], label = '')
-            z = averaged_means[:, iblock, isubset] 
-            z = z[~np.isnan(z)]
-            ax.boxplot(z, positions = [isubset], showmeans = True)
-            statistic, p_value = wilcoxon(z - 0.50, alternative = 'greater')
-            p_values[iblock, isubset] = p_value
-        if correction == 'fdr': signif_frames, corrected_pvals = multitest.fdrcorrection(p_values[iblock, :], alpha=0.05, method='indep', is_sorted=False)
-        elif correction == 'holm': signif_frames, corrected_pvals, b, c = multitest.multipletests(p_values[iblock, :], alpha = 0.05, method = 'holm')
-        elif correction == 'bonferroni': signif_frames, corrected_pvals, b, c = multitest.multipletests(p_values[iblock, :], alpha = 0.05, method = 'bonferroni')
-        if np.any(signif_frames == True): 
-            ax.plot(np.arange(0, 3, 1)[signif_frames], np.repeat(1.05, np.sum(signif_frames)), '*', color = 'black', markersize = 5)
-
-    fig.suptitle("Classification scores averaged over all pp \nCorrection method: {}"
-                 .format(correction))
-    handles, labels = axs[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="center right")
-    fig.tight_layout()
-    fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'Final', 'AverageAU_{}_below85deleted{}_{}fold_{}reps.png'
-                             .format(correction, delete_below85, k_folds, n_reps)))
-
-elif analysis == 'FperF': 
-    fig, axs = plt.subplots(1, 1)
-    axs.set_ylim(0.35, 1.05)
-    if blocks.shape[0] != 3:  axs.set_ylim(0.35, 0.6)
-    significant_frames = np.array([])
-    p_values = np.empty((blocks.shape[0], n_subsets))
-
-    for iblock, block in zip(blocks, blocks+1): 
-        means = np.nanmean(averaged_means[:, iblock, :], axis = 0)
-        stds = np.nanstd(averaged_means[:, iblock, :], axis = 0)
-        plt.errorbar(frame_selection, means, yerr = stds, fmt = formats[iblock], color = colors[iblock], label = 'block {}'.format(block))
-        for frame in frame_selection: 
-            z = averaged_means[:, iblock, frame] 
-            z = z[~np.isnan(z)]
-            statistic, p_value = wilcoxon(z - 0.50, alternative = 'greater')
-            p_values[iblock, frame] = p_value
-
-        if correction == 'fdr': signif_frames, corrected_pvals = multitest.fdrcorrection(p_values[iblock, frames_corrected_for], alpha=0.05, method='indep', is_sorted=False)
-        elif correction == 'holm': signif_frames, corrected_pvals, b, c = multitest.multipletests(p_values[iblock, frames_corrected_for], alpha = 0.05, method = 'holm')
-        if np.any(signif_frames == True): axs.plot(frames_corrected_for[signif_frames], np.repeat(0.45-block*0.025, frames_corrected_for[signif_frames].shape[0]), 'o', color = colors[iblock], markersize = 5)
-        
-           
-    axs.plot(frame_selection, np.repeat(0.5, n_subsets), color = 'black', label = 'Chance level')
-    axs.plot([14,14],[0,5], lw = 0.5, linestyle ="dashed", color ='black', label ='appeared')
-    axs.plot([45,45],[0,5], lw = 0.5, linestyle ="dashed", color ='black', label ='disappeared')
-    handles, labels = axs.get_legend_handles_labels()
-    handles = np.delete(handles, [1, 2])
-    labels = np.delete(labels, [1, 2])
-    fig.legend(handles, labels, loc="center right")
-    fig.suptitle('Classification scores averaged over all pp')
-    axs.set_title("Correction method: {}, frames included: {}-{}".format(correction, 
-                                                                         frames_corrected_for[0]+1, 
-                                                                         frames_corrected_for[-1]+1))
-    fig.savefig(os.path.join(os.getcwd(), 'Classification_plots', 'Final', 'F_per_F_{}_frames{}to{}_below85deleted{}_{}folds_{}reps.png'.format(correction, 
-                                                                              frames_corrected_for[0]+1, 
-                                                                              frames_corrected_for[-1]+1, delete_below85, 
-                                                                              k_folds, n_reps)))
-
-
-
-
-
-
-
+np.save(os.path.join(array_dir, "mean_accuracies_{}reps_{}_{}.npy".format(n_reps, analysis, metric)), store_all_means)
+np.save(os.path.join(array_dir, "sderror_accuracies_{}reps_{}_{}.npy".format(n_reps, analysis, metric)), store_all_std)
 
 #%%
-for train_ix, test_ix in cv.split(x, y):
-	# select rows
-	train_X, test_X = x.iloc[train_ix, :], x.iloc[test_ix, :]
-	train_y, test_y = y[train_ix], y[test_ix]
-	# summarize train and test composition
-	train_0, train_1 = len(train_y[train_y==0]), len(train_y[train_y==1])
-	test_0, test_1 = len(test_y[test_y==0]), len(test_y[test_y==1])
-	print('>Train: 0=%d, 1=%d, Test: 0=%d, 1=%d' % (train_0, train_1, test_0, test_1))
+# for train_ix, test_ix in cv.split(x, y):
+# 	# select rows
+# 	train_X, test_X = x.iloc[train_ix, :], x.iloc[test_ix, :]
+# 	train_y, test_y = y[train_ix], y[test_ix]
+# 	# summarize train and test composition
+# 	train_0, train_1 = len(train_y[train_y==0]), len(train_y[train_y==1])
+# 	test_0, test_1 = len(test_y[test_y==0]), len(test_y[test_y==1])
+# 	print('>Train: 0=%d, 1=%d, Test: 0=%d, 1=%d' % (train_0, train_1, test_0, test_1))
 
 
 
